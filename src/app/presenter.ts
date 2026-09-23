@@ -68,25 +68,43 @@ export async function presentAssistantTurn(result: AssistantTurnResult, catalog:
     return { candidate, details, comparison: compareFacts(target, details) };
   }));
 
+  // A broad name search may miss an item that the dedicated alternative
+  // retriever finds; don't show a contradictory "no products" warning beside it.
+  if (alternatives.length) warnings.delete("No matching products were found in the searched catalog.");
+
   return { reply: result.text, products: [...cards.values()], alternatives, proposal, warnings: [...warnings] };
 }
 
 function compareFacts(requested: ProductDetails | null, offered: ProductDetails | null): ComparisonRow[] {
   return COMPARISON_FIELDS.map((field) => {
-    const left = factValue(requested?.facts ?? [], field);
-    const right = factValue(offered?.facts ?? [], field);
+    const requestedFacts = requested?.facts ?? [];
+    const offeredFacts = offered?.facts ?? [];
+    const left = factValue(requestedFacts, field);
+    const right = factValue(offeredFacts, field);
+    const conflict = hasConflictingClaims(requestedFacts, field) || hasConflictingClaims(offeredFacts, field);
     return {
       field,
       requested: left,
       offered: right,
-      verdict: left === null || right === null ? "unknown" : left === right ? "match" : "different",
+      verdict: conflict || left === null || right === null ? "unknown" : left === right ? "match" : "different",
     };
   });
 }
 
+function hasConflictingClaims(facts: ProductFact[], field: string): boolean {
+  return new Set(facts.filter((fact) => fact.field === field).map((fact) => String(fact.value).trim())).size > 1;
+}
+
 function factValue(facts: ProductFact[], field: string): string | null {
-  const values = [...new Set(facts.filter((fact) => fact.field === field).map((fact) => String(fact.value).trim()))];
-  return values.length === 1 ? values[0] : null;
+  const claims = facts.filter((fact) => fact.field === field);
+  const values = [...new Set(claims.map((fact) => String(fact.value).trim()))];
+  if (values.length === 1) return values[0]!;
+  if (values.length > 1) {
+    const label = (location: ProductFact["location"]) => location === "name" ? "название" : "характеристика";
+    const sources = [...new Set(claims.map((fact) => `${label(fact.location)} — ${fact.value}`))];
+    return `Конфликт источника: ${sources.join("; ")}`;
+  }
+  return null;
 }
 
 function readCity(args: unknown): string | null {

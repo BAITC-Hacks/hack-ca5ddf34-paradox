@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { EktClient } from "../../src/catalog/ekt-client.js";
+import { CatalogSearchIndex } from "../../src/catalog/index.js";
 import { EktCatalogReader } from "../../src/integration/ekt-reader.js";
 
 const target = {
@@ -87,14 +88,86 @@ test("maps EKT detail into cited facts and canonical city stock", async () => {
   assert.equal(product.source.url, "https://ekt.kz/catalog/target-160");
 });
 
-test("finds same-category alternatives and explains differences", async () => {
+test("does not suggest same-category products with a confirmed different rated current", async () => {
   const reader = createReader();
   const alternatives = await reader.findAlternatives({ productId: "1", city: "Астана", limit: 3 });
 
-  assert.equal(alternatives.length, 1);
-  assert.equal(alternatives[0].product.article, "CANDIDATE-100");
-  assert.ok(!alternatives.some((item) => item.product.article === "CANDIDATE-NO-STOCK"));
-  assert.ok(alternatives[0].matchedFields.includes("category"));
-  assert.ok(alternatives[0].differentFields.includes("ratedCurrentA"));
-  assert.match(alternatives[0].explanation, /отличаются/);
+  assert.deepEqual(alternatives, []);
+});
+
+test("finds an in-stock Legrand alternative from another series and marks conflicting current as uncertain", async () => {
+  const targetForCase = {
+    ...target,
+    id: 310100077,
+    name: "Автоматический выключатель Legrand DPX 160 А",
+    article: "310100077_",
+    properties: {
+      OBYEM: "Автоматика",
+      TORGOVAYA_MARKA: "Legrand",
+      KOLICHESTVO_POLYUSOV: "3",
+      NOMINALNYY_TOK: "160 А",
+      NOMINALNOE_NAPRYAZHENIE: "400 В",
+      NOMINALNAYA_OTKLYUCHAYUSHCHAYA_SPOSOBNOST: "25 кА",
+      TIP_USTANOVKI: "Стационарный",
+    },
+  };
+  const otherSeriesCandidate = {
+    ...candidate,
+    id: 200300285,
+    name: "Автоматический выключатель Legrand DRX 160 А",
+    article: "200300285_",
+    stores: [{ name: "Алматы", quantity: 5 }, { name: "Астана", quantity: 3 }],
+    properties: {
+      OBYEM: "Автоматика",
+      TORGOVAYA_MARKA: "Legrand",
+      KOLICHESTVO_POLYUSOV: "3",
+      NOMINALNYY_TOK: "250 А",
+      NOMINALNOE_NAPRYAZHENIE: "400 В",
+      NOMINALNAYA_OTKLYUCHAYUSHCHAYA_SPOSOBNOST: "36 кА",
+      TIP_USTANOVKI: "Стационарный",
+    },
+  };
+  const wrongCityStockOnly = {
+    ...otherSeriesCandidate,
+    id: 200300286,
+    article: "NO-ALMATY-STOCK",
+    stores: [{ name: "Алматы", quantity: 0 }, { name: "Астана", quantity: 100 }],
+  };
+  const details = new Map([
+    [targetForCase.id, targetForCase],
+    [otherSeriesCandidate.id, otherSeriesCandidate],
+    [wrongCityStockOnly.id, wrongCityStockOnly],
+  ]);
+  const listItems = [...details.values()].map(({ stores, properties, quantity, ...item }) => item);
+  const fetcher = async (input: string | URL | Request): Promise<Response> => {
+    const url = new URL(input.toString());
+    if (url.pathname.endsWith("/products/detail")) {
+      const detail = details.get(Number(url.searchParams.get("id")));
+      return detail ? Response.json(detail) : new Response(null, { status: 404 });
+    }
+    return Response.json({ page: 1, per_page: 20, count: listItems.length, items: listItems });
+  };
+  const client = new EktClient({
+    baseUrl: "https://ekt.test/api",
+    user: "test-user",
+    password: "test-password",
+    fetch: fetcher as typeof fetch,
+  });
+  const index = await CatalogSearchIndex.build(client);
+  const reader = new EktCatalogReader({ client, index });
+
+  const alternatives = await reader.findAlternatives({ productId: "310100077_", city: "Алматы", limit: 5 });
+  const alternative = alternatives.find(({ product }) => product.article === "200300285_");
+
+  assert.ok(alternative, "a different-series product with stock in Алматы should not be excluded by the DPX Legrand index phrase");
+  assert.ok(!alternatives.some(({ product }) => product.article === "NO-ALMATY-STOCK"), "stock outside the selected city is not sufficient");
+  for (const field of ["category", "brand", "poleCount", "ratedVoltageV", "mounting"]) {
+    assert.ok(alternative.matchedFields.includes(field), `expected ${field} to be compared as a match`);
+  }
+  assert.ok(alternative.differentFields.includes("breakingCapacityKA"), "critical breaking capacity differences must be shown");
+  assert.ok(alternative.unknownFields.includes("ratedCurrentA"), "conflicting current claims must be surfaced as uncertainty");
+  assert.match(alternative.explanation, /требуют проверки/);
+  assert.match(alternative.explanation, /название — 160; характеристика — 250/);
+  assert.equal(alternative.assessment, "candidate_requires_verification");
+  assert.doesNotMatch(alternative.explanation, /совместим|подходит|аналог\s+без\s+оговорок/i);
 });
