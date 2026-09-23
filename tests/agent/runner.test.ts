@@ -44,6 +44,10 @@ test("executes Responses function calls and returns the final assistant text", a
   assert.equal(result.text, "Нашёл автомат 160 А. Открыть карточку товара?");
   assert.equal(result.toolRounds, 1);
   assert.equal(create.mock.calls.length, 2);
+  const firstRequest = create.mock.calls[0][0] as { max_output_tokens: number; reasoning: { effort: string }; text: { verbosity: string } };
+  assert.equal(firstRequest.max_output_tokens, 1_200);
+  assert.deepEqual(firstRequest.reasoning, { effort: "low" });
+  assert.deepEqual(firstRequest.text, { verbosity: "low" });
   const secondRequest = create.mock.calls[1][0] as { input: unknown[] };
   assert.ok(secondRequest.input.some((item) => JSON.stringify(item).includes("function_call_output")));
   assert.ok(secondRequest.input.some((item) => JSON.stringify(item).includes("200300285_")));

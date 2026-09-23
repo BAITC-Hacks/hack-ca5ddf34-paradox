@@ -63,7 +63,7 @@ export class AssistantRunner {
       ...(input.history ?? []).map((item) => ({ role: item.role, content: item.content })),
       { role: "user", content: input.message },
     ];
-    const maxRounds = input.maxToolRounds ?? 6;
+    const maxRounds = input.maxToolRounds ?? 4;
     let rounds = 0;
     const toolEvents: AssistantToolEvent[] = [];
     let response = await this.createResponse(inputItems);
@@ -101,6 +101,9 @@ export class AssistantRunner {
       tools: toolDefinitions,
       input: input as never,
       parallel_tool_calls: false,
+      reasoning: { effort: "low" },
+      text: { verbosity: "low" },
+      max_output_tokens: 1_200,
       store: false,
     } as never);
     const result = response as unknown as ResponseLike;

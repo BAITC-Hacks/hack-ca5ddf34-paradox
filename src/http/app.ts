@@ -10,6 +10,7 @@ import type { AssistantHistoryItem, AssistantTurnResult } from "../agent/runner.
 import { presentAssistantTurn } from "../app/presenter.js";
 
 const COOKIE_NAME = "ekt_demo_session";
+const MAX_HISTORY_ITEMS = 6; // Keep the last 3 user/assistant turns for follow-up context.
 const chatInput = z.object({ message: z.string().trim().min(1).max(4_000) }).strict();
 const confirmInput = z.object({ proposalId: z.string().uuid() }).strict();
 
@@ -90,7 +91,7 @@ export async function createHttpApp(options: HttpAppOptions): Promise<FastifyIns
     const result = await options.runtime.run({ sessionId: session.id, message, history: session.history });
     const presentation = await presentAssistantTurn(result, options.runtime.catalog);
     session.history.push({ role: "user", content: message }, { role: "assistant", content: presentation.reply });
-    session.history = session.history.slice(-12);
+    session.history = session.history.slice(-MAX_HISTORY_ITEMS);
     return presentation;
   });
 
