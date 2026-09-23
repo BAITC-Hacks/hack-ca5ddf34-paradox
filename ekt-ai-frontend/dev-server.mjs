@@ -8,9 +8,11 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const staticFiles = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/index.html', ['index.html', 'text/html; charset=utf-8']],
+  ['/demo.html', ['demo.html', 'text/html; charset=utf-8']],
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
   ['/api.js', ['api.js', 'text/javascript; charset=utf-8']],
   ['/view-model.js', ['view-model.js', 'text/javascript; charset=utf-8']],
+  ['/saved-store.js', ['saved-store.js', 'text/javascript; charset=utf-8']],
   ['/app.js', ['app.js', 'text/javascript; charset=utf-8']]
 ]);
 const hopByHop = new Set([

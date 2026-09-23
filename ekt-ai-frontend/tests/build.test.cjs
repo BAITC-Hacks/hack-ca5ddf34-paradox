@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const { spawnSync } = require('node:child_process');
 
 const root = path.join(__dirname, '..');
-const scriptNames = ['api.js', 'view-model.js', 'app.js'];
+const scriptNames = ['api.js', 'view-model.js', 'saved-store.js', 'app.js'];
 const runBuild = (...args) => spawnSync(process.execPath, [path.join(root, 'build.mjs'), ...args], { encoding: 'utf8' });
 
 test('a downloaded HTML contains all styles and executable scripts without sibling resources', t => {

@@ -72,13 +72,43 @@
     return { quantity, city: city || '', label };
   }
 
+  function warehouseName(value) {
+    if (!record(value)) return '';
+    for (const key of ['warehouse', 'warehouseName', 'storeName', 'name']) {
+      if (nonempty(value[key])) return value[key].trim();
+    }
+    return '';
+  }
+
   function entriesFromStock(value, keyedByCity) {
-    if (Array.isArray(value)) return value.filter(record).map(item => ({ city: cityName(item), quantity: stockQuantity(item) }));
+    if (Array.isArray(value)) return value.filter(record).map(item => ({ city: cityName(item), warehouse: keyedByCity ? '' : warehouseName(item), quantity: stockQuantity(item) }));
     if (!record(value)) return [];
     return Object.entries(value).map(([key, item]) => ({
       city: cityName(item) || (keyedByCity ? key : ''),
+      warehouse: keyedByCity ? '' : warehouseName(item),
       quantity: stockQuantity(item)
     }));
+  }
+
+  // Warehouse rows remain separate. A missing city total is never derived by summing them.
+  function stockEntries(value) {
+    const warehouses = Array.isArray(value) ? entriesFromStock(value, false) : record(value) ? entriesFromStock(value.stores, false) : [];
+    const byCity = record(value) ? entriesFromStock(value.byCity, true) : [];
+    const warehouseCities = new Set(warehouses.map(item => cityKey(item.city)).filter(Boolean));
+    const rows = [...warehouses, ...byCity.filter(item => !warehouseCities.has(cityKey(item.city)))];
+    if (!rows.length && cityName(value)) rows.push({ city: cityName(value), warehouse: warehouseName(value), quantity: stockQuantity(value) });
+    return rows;
+  }
+
+  function cities(value) {
+    const names = [cityName(value), ...stockEntries(value).map(item => item.city)];
+    const seen = new Set();
+    return names.filter(name => {
+      const key = cityKey(name);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
   function stock(value, requestedCity) {
@@ -96,7 +126,10 @@
       return warehouses.length === 1 ? stockResult(warehouses[0].quantity, warehouses[0].city) : stockResult(null, city);
     }
     const quantity = stockQuantity(value);
-    if (quantity !== null) return stockResult(quantity, directCity);
+    if (quantity !== null) {
+      if (!directCity && stockEntries(value).length) return { quantity, city: '', label: 'Всего по складам · ' + numberFormat.format(quantity) };
+      return stockResult(quantity, directCity);
+    }
     const entries = Array.isArray(value) ? entriesFromStock(value, false) : record(value)
       ? [...entriesFromStock(value.byCity, true), ...entriesFromStock(value.stores, false)] : [];
     return entries.length === 1 ? stockResult(entries[0].quantity, entries[0].city) : stockResult(null, directCity);
@@ -169,6 +202,78 @@
     }
   }
 
+  // Unlike generic links, resource values must look like a URL or a file path.
+  // Plain text such as "сертификат есть" must not become a made-up same-origin URL.
+  function resourceLink(value) {
+    if (!nonempty(value)) return null;
+    const raw = value.trim();
+    const explicitUrl = /^https?:\/\//i.test(raw);
+    const explicitPath = /^(?:\/(?!\/)|\.{1,2}\/)/.test(raw);
+    const relativeFile = /^[^\s:?#]+\.(?:pdf|docx?|xlsx?|jpe?g|png|webp|gif|avif|svg)(?:[?#].*)?$/i.test(raw);
+    return explicitUrl || explicitPath || relativeFile ? safeLink(raw) : null;
+  }
+
+  function certificateField(value) {
+    return typeof value === 'string' && /^(?:certificates?|certificate[_ -]?urls?|сертификаты?|ссылка на сертификат)$/i.test(value.trim());
+  }
+
+  function certificates(product) {
+    if (!record(product)) return [];
+    const result = [];
+    const seen = new Set();
+    const add = (raw, inheritedName, depth) => {
+      if (depth > 6) return;
+      if (Array.isArray(raw)) { raw.forEach(item => add(item, inheritedName, depth + 1)); return; }
+      if (record(raw)) {
+        const name = [raw.name, raw.label, raw.title, inheritedName].find(nonempty);
+        for (const key of ['url', 'href', 'fileUrl', 'file_url', 'link', 'value']) {
+          if (own(raw, key)) add(raw[key], name, depth + 1);
+        }
+        return;
+      }
+      const url = resourceLink(raw);
+      if (!url || seen.has(url)) return;
+      seen.add(url);
+      result.push({ name: nonempty(inheritedName) && !certificateField(inheritedName) ? inheritedName.trim() : 'Сертификат', url });
+    };
+    add(product.certificates, '', 0);
+    if (Array.isArray(product.facts)) {
+      product.facts.forEach(item => {
+        if (!record(item) || ![item.name, item.label, item.key].some(certificateField)) return;
+        add(item.value, item.name || item.label || '', 0);
+      });
+    } else if (record(product.facts)) {
+      Object.entries(product.facts).forEach(([key, value]) => {
+        if (certificateField(key)) add(value, '', 0);
+      });
+    }
+    return result;
+  }
+
+  function image(product) {
+    if (!record(product)) return null;
+    const candidates = [product.imageUrl, product.image, ...(Array.isArray(product.images) ? product.images : [])];
+    for (const item of candidates) {
+      const url = resourceLink(record(item) ? item.url : item);
+      if (url) return url;
+    }
+    return null;
+  }
+
+  function unit(product) {
+    if (!record(product)) return '';
+    if (nonempty(product.unit)) return product.unit.trim();
+    const productFacts = product.facts;
+    let raw;
+    if (record(productFacts)) raw = productFacts.unit;
+    else if (Array.isArray(productFacts)) {
+      const matches = productFacts.filter(item => record(item) && [item.key, item.name, item.label].includes('unit'));
+      if (matches.length === 1) raw = matches[0].value;
+    }
+    if (record(raw)) raw = raw.value;
+    return nonempty(raw) ? raw.trim() : '';
+  }
+
   function proposalValid(proposal, now) {
     if (!record(proposal)) return false;
     if (!nonempty(proposal.id) || !nonempty(proposal.productName) || !nonempty(proposal.productArticle) || !nonempty(proposal.city)) return false;
@@ -183,5 +288,5 @@
     return Number.isFinite(expires) && current !== null && Number.isFinite(current) && expires > current;
   }
 
-  global.EktView = Object.freeze({ money, cartTotal, stock, facts, orderMultiple, isMultiple, safeLink, proposalValid });
+  global.EktView = Object.freeze({ money, cartTotal, stock, stockEntries, cities, facts, certificates, image, unit, orderMultiple, isMultiple, safeLink, proposalValid });
 })(window);

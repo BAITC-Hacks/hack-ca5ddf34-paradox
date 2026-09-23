@@ -13,7 +13,7 @@ for (let i = 0; i < args.length; i++) {
   } else throw new Error('Usage: node build.mjs [--check] [--output path/to/index.html]');
 }
 
-const assets = ['styles.css', 'api.js', 'view-model.js', 'app.js'];
+const assets = ['styles.css', 'api.js', 'view-model.js', 'saved-store.js', 'app.js'];
 const templatePath = path.join(root, 'src', 'index.template.html');
 if ([templatePath, ...assets.map(name => path.join(root, name))].includes(output)) {
   throw new Error('Output must not overwrite an editable source file.');
