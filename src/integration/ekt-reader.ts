@@ -9,6 +9,7 @@ import type {
   StockRecord,
 } from "../agent/schemas.js";
 import { EktClient } from "../catalog/ekt-client.js";
+import type { CatalogSearchIndex } from "../catalog/index.js";
 import { normalizeCity, normalizeProduct } from "../catalog/normalize.js";
 import { searchProducts } from "../catalog/search.js";
 import type { CatalogProduct, EktProductDetail } from "../catalog/types.js";
@@ -26,24 +27,26 @@ const COMPARABLE_FIELDS = [
 
 export type EktCatalogReaderOptions = {
   client: EktClient;
+  index?: CatalogSearchIndex;
   maxSearchPages?: number;
 };
 
 /** Adapts the partner's REST catalog to the read-only agent contracts. */
 export class EktCatalogReader implements CatalogReader {
   private readonly client: EktClient;
+  private readonly index?: CatalogSearchIndex;
   private readonly maxSearchPages: number;
 
   constructor(options: EktCatalogReaderOptions) {
     this.client = options.client;
+    this.index = options.index;
     this.maxSearchPages = options.maxSearchPages ?? 20;
   }
 
   async search(input: { query: string; city: string | null; limit: number }): Promise<ProductSummary[]> {
-    const result = await searchProducts(this.client, input.query, {
-      limit: input.limit,
-      maxPages: this.maxSearchPages,
-    });
+    const result = this.index?.coverage.itemsIndexed
+      ? this.index.search(input.query, { limit: input.limit })
+      : await searchProducts(this.client, input.query, { limit: input.limit, maxPages: this.maxSearchPages });
     return result.products.map(toSummary);
   }
 
@@ -57,10 +60,10 @@ export class EktCatalogReader implements CatalogReader {
     if (!targetRaw) return [];
     const target = normalizeProduct(targetRaw);
     const query = categoryQuery(target);
-    const candidates = await searchProducts(this.client, query, {
-      limit: Math.max(input.limit * 3, 6),
-      maxPages: this.maxSearchPages,
-    });
+    const candidateLimit = Math.max(input.limit * 3, 6);
+    const candidates = this.index?.coverage.itemsIndexed
+      ? this.index.search(query, { limit: candidateLimit })
+      : await searchProducts(this.client, query, { limit: candidateLimit, maxPages: this.maxSearchPages });
 
     const resolved: Array<{ candidate: AlternativeCandidate; score: number }> = [];
     for (const item of candidates.products) {
@@ -96,8 +99,9 @@ export class EktCatalogReader implements CatalogReader {
         return null;
       }
     }
-    const result = await searchProducts(this.client, productId, { limit: 1, maxPages: this.maxSearchPages });
-    const match = result.products[0];
+    const match = this.index?.coverage.itemsIndexed
+      ? (this.index.findByArticle(productId)[0] ?? this.index.search(productId, { limit: 1 }).products[0])
+      : (await searchProducts(this.client, productId, { limit: 1, maxPages: this.maxSearchPages })).products[0];
     return match ? this.client.getProductDetail(match.id) : null;
   }
 }

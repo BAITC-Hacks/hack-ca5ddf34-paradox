@@ -2,6 +2,8 @@ import OpenAI from "openai";
 import { AssistantRunner, type AssistantHistoryItem, type ResponsesClient } from "../agent/runner.js";
 import type { CartProposalWriter } from "../agent/tools.js";
 import { EktClient, type EktClientOptions } from "../catalog/ekt-client.js";
+import { CatalogSearchIndex, type CatalogIndexCoverage } from "../catalog/index.js";
+import { normalizeCity } from "../catalog/normalize.js";
 import { EktCatalogReader } from "../integration/ekt-reader.js";
 import { ektPurchaseTerms } from "../knowledge/ekt-terms.js";
 import { createPurchaseTermsReader } from "../knowledge/purchase-terms.js";
@@ -26,6 +28,7 @@ export type EktAssistantTurn = {
 /** Application composition root for the hackathon demo. HTTP handlers can stay thin. */
 export class EktAssistantRuntime {
   readonly catalogClient: EktClient;
+  readonly catalogIndex: CatalogSearchIndex;
   readonly catalog: EktCatalogReader;
   readonly cart: CartProvider;
   private readonly openai: ResponsesClient;
@@ -33,22 +36,28 @@ export class EktAssistantRuntime {
 
   constructor(options: EktAssistantOptions = {}) {
     this.catalogClient = new EktClient(options.ekt);
-    this.catalog = new EktCatalogReader({ client: this.catalogClient });
+    this.catalogIndex = new CatalogSearchIndex();
+    this.catalog = new EktCatalogReader({ client: this.catalogClient, index: this.catalogIndex });
     this.openai = options.openai ?? new OpenAI();
     this.model = options.model;
     this.cart = new DemoCartProvider({
       baseUrl: options.appBaseUrl ?? process.env.PUBLIC_APP_URL ?? "http://localhost:3000",
-      resolveProduct: (productId) => this.resolveCartProduct(productId),
+      resolveProduct: (input) => this.resolveCartProduct(input),
     });
+  }
+
+  async warmCatalogIndex(maxPages = 20): Promise<CatalogIndexCoverage> {
+    return this.catalogIndex.load(this.catalogClient, { maxPages });
   }
 
   async run(turn: EktAssistantTurn) {
     if (!turn.sessionId.trim()) throw new Error("sessionId must be non-empty");
     const cart = this.cart;
     const cartReader = {
-      async getQuantity(productId: string): Promise<number> {
+      async getQuantity(productId: string, city: string): Promise<number> {
         const snapshot = await cart.getCart(turn.sessionId);
-        return snapshot.items.find((item) => item.productId === productId)?.quantity ?? 0;
+        const requestedCity = normalizeCity(city) ?? city;
+        return snapshot.items.find((item) => item.productId === productId && item.city === requestedCity)?.quantity ?? 0;
       },
     };
     const cartProposalWriter: CartProposalWriter = {
@@ -67,35 +76,38 @@ export class EktAssistantRuntime {
     return runner.run(turn);
   }
 
-  private async resolveCartProduct(productId: string): Promise<CartProduct | null> {
-    const detail = await this.catalog.getDetails({ productId, city: null });
+  private async resolveCartProduct(input: { productId: string; city: string }): Promise<CartProduct | null> {
+    const city = normalizeCity(input.city) ?? input.city;
+    const detail = await this.catalog.getDetails({ productId: input.productId, city });
     if (!detail?.price) return null;
-    const stockRecords = detail.stock.filter((item) => item.customerAccessible && item.availableQuantity !== null);
+    const stockRecords = detail.stock.filter((item) => item.customerAccessible && item.city === city && item.availableQuantity !== null);
     if (!stockRecords.length) return null;
     const availableQuantity = stockRecords.reduce((sum, item) => sum + (item.availableQuantity ?? 0), 0);
     return {
       productId: detail.id,
       name: detail.name,
+      city: input.city,
       unitPriceMinor: toMinorUnits(detail.price.amount),
       availableQuantity,
     };
   }
 
   private async prepareCartProposal(sessionId: string, productId: string, quantity: number, city: string): Promise<CartProposal> {
-    const detail = await this.catalog.getDetails({ productId, city });
+    const canonicalCity = normalizeCity(city) ?? city;
+    const detail = await this.catalog.getDetails({ productId, city: canonicalCity });
     if (!detail?.price) throw new Error("A current price is required before cart preparation");
-    const prepared = await this.cart.prepare({ sessionId, productId: detail.id, quantity });
+    const prepared = await this.cart.prepare({ sessionId, productId: detail.id, quantity, city: canonicalCity });
     return {
       id: prepared.proposalId,
       productId: prepared.product.productId,
       productName: prepared.product.name,
       productArticle: detail.article,
       quantity,
-      city,
+      city: canonicalCity,
       unitPrice: detail.price,
       totalAmount: prepared.lineTotalMinor / 100,
       existingQuantity: prepared.resultingQuantity - quantity,
-      expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+      expiresAt: prepared.expiresAt,
       status: "awaiting_explicit_confirmation",
       confirmationRequired: true,
       cartState: "unchanged",

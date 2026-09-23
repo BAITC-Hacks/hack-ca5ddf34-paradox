@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { EKT_AGENT_INSTRUCTIONS } from "./instructions.js";
 import { createAgentTools, type AgentToolDependencies } from "./tools.js";
-import { toolDefinitions } from "./schemas.js";
+import { toolDefinitions, type AgentToolName } from "./schemas.js";
 
 type ResponseFunctionCall = {
   type: "function_call";
@@ -27,6 +27,13 @@ export type AssistantTurnResult = {
   text: string;
   toolRounds: number;
   output: unknown[];
+  toolEvents: AssistantToolEvent[];
+};
+
+export type AssistantToolEvent = {
+  name: AgentToolName;
+  arguments: unknown;
+  result: unknown;
 };
 
 export type ResponsesClient = Pick<OpenAI, "responses">;
@@ -45,7 +52,7 @@ export class AssistantRunner {
 
   constructor(options: AssistantRunnerOptions) {
     this.client = options.client ?? new OpenAI();
-    this.model = options.model ?? process.env.OPENAI_MODEL ?? "gpt-6-astra";
+    this.model = options.model ?? process.env.OPENAI_MODEL ?? "gpt-6-sol";
     this.dependencies = options.tools;
   }
 
@@ -58,30 +65,33 @@ export class AssistantRunner {
     ];
     const maxRounds = input.maxToolRounds ?? 6;
     let rounds = 0;
+    const toolEvents: AssistantToolEvent[] = [];
     let response = await this.createResponse(inputItems);
 
-    while (rounds < maxRounds) {
+    while (true) {
       const calls = response.output.filter(isFunctionCall);
       if (!calls.length) {
-        return { text: response.output_text ?? "Не удалось получить ответ от ассистента.", toolRounds: rounds, output: response.output };
+        return { text: response.output_text ?? "Не удалось получить ответ от ассистента.", toolRounds: rounds, output: response.output, toolEvents };
       }
+      if (rounds >= maxRounds) throw new Error(`Assistant exceeded ${maxRounds} tool rounds`);
       rounds++;
       inputItems.push(...response.output);
       for (const call of calls) {
         let result: unknown;
+        let args: unknown = null;
         try {
-          const args = JSON.parse(call.arguments) as unknown;
+          args = JSON.parse(call.arguments) as unknown;
           const tool = toolMap[call.name];
           if (!tool) throw new Error(`Unknown tool: ${call.name}`);
           result = await tool(args);
         } catch (error) {
           result = { error: error instanceof Error ? error.message : "Tool execution failed" };
         }
+        if (call.name in toolMap) toolEvents.push({ name: call.name as AgentToolName, arguments: args, result });
         inputItems.push({ type: "function_call_output", call_id: call.call_id, output: JSON.stringify(result) });
       }
       response = await this.createResponse(inputItems);
     }
-    throw new Error(`Assistant exceeded ${maxRounds} tool rounds`);
   }
 
   private async createResponse(input: unknown[]): Promise<ResponseLike> {

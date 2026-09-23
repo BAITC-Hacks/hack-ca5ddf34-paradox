@@ -14,12 +14,15 @@ import {
   requireNonEmpty,
   requireQuantity,
   requireStock,
+  requireUnexpired,
   requireValidProduct,
 } from './confirmation.js';
 
 interface Proposal {
   product: CartProduct;
+  city: string;
   quantityToAdd: number;
+  expiresAtMs: number;
   confirmed: boolean;
 }
 
@@ -34,6 +37,8 @@ export interface DemoCartOptions {
   baseUrl: string;
   /** Same-origin path; the app must resolve the cart from its session cookie. */
   cartPath?: string;
+  /** How long an unconfirmed proposal remains valid; defaults to five minutes. */
+  proposalTtlMs?: number;
 }
 
 /** Process-local demo implementation. State is lost on restart or on another server instance. */
@@ -42,12 +47,18 @@ export class DemoCartProvider implements CartProvider {
   private readonly sessions = new Map<string, SessionCart>();
   private readonly locks = new Map<string, Promise<void>>();
   private readonly cartUrl: string;
+  private readonly proposalTtlMs: number;
 
   constructor(options: DemoCartOptions) {
     this.options = options;
     if (typeof options.resolveProduct !== 'function') {
       throw new CartError('INVALID_INPUT', 'resolveProduct must be a function');
     }
+    const ttl = options.proposalTtlMs ?? 5 * 60_000;
+    if (!Number.isSafeInteger(ttl) || ttl <= 0 || ttl > 24 * 60 * 60_000) {
+      throw new CartError('INVALID_INPUT', 'proposalTtlMs must be between 1 ms and 24 hours');
+    }
+    this.proposalTtlMs = ttl;
     let base: URL;
     try {
       base = new URL(options.baseUrl);
@@ -71,14 +82,17 @@ export class DemoCartProvider implements CartProvider {
   async prepare(input: {
     sessionId: string;
     productId: string;
+    city: string;
     quantity: number;
   }): Promise<PreparedCartChange> {
     requireNonEmpty(input.sessionId, 'sessionId');
     requireNonEmpty(input.productId, 'productId');
+    requireNonEmpty(input.city, 'city');
     requireQuantity(input.quantity);
 
-    const product = await this.loadProduct(input.productId);
-    const existing = this.sessions.get(input.sessionId)?.items.get(input.productId)?.quantity ?? 0;
+    const city = input.city.trim();
+    const product = await this.loadProduct(input.productId, city);
+    const existing = this.sessions.get(input.sessionId)?.items.get(this.itemKey(input.productId, city))?.quantity ?? 0;
     requireStock(product.availableQuantity, existing, input.quantity);
     const lineTotalMinor = product.unitPriceMinor * input.quantity;
     if (!Number.isSafeInteger(lineTotalMinor)) {
@@ -86,17 +100,22 @@ export class DemoCartProvider implements CartProvider {
     }
 
     const proposalId = randomUUID();
+    const expiresAtMs = Date.now() + this.proposalTtlMs;
     this.session(input.sessionId).proposals.set(proposalId, {
       product: { ...product },
+      city,
       quantityToAdd: input.quantity,
+      expiresAtMs,
       confirmed: false,
     });
     return {
       proposalId,
+      city,
       product: { ...product },
       quantityToAdd: input.quantity,
       resultingQuantity: existing + input.quantity,
       lineTotalMinor,
+      expiresAt: new Date(expiresAtMs).toISOString(),
     };
   }
 
@@ -118,12 +137,15 @@ export class DemoCartProvider implements CartProvider {
       if (proposal.confirmed) {
         return { proposalId: input.proposalId, alreadyConfirmed: true, cart: this.snapshot(session) };
       }
+      requireUnexpired(proposal.expiresAtMs, Date.now());
 
-      const current = await this.loadProduct(proposal.product.productId);
+      const current = await this.loadProduct(proposal.product.productId, proposal.city);
+      requireUnexpired(proposal.expiresAtMs, Date.now());
       if (current.unitPriceMinor !== proposal.product.unitPriceMinor) {
         throw new CartError('PRICE_CHANGED', 'Price changed; prepare a new confirmation');
       }
-      const existing = session.items.get(current.productId)?.quantity ?? 0;
+      const key = this.itemKey(current.productId, proposal.city);
+      const existing = session.items.get(key)?.quantity ?? 0;
       requireStock(current.availableQuantity, existing, proposal.quantityToAdd);
       const resultingQuantity = existing + proposal.quantityToAdd;
       if (!Number.isSafeInteger(resultingQuantity)) {
@@ -133,13 +155,14 @@ export class DemoCartProvider implements CartProvider {
       const updatedItem: CartItem = {
         productId: current.productId,
         name: current.name,
+        city: proposal.city,
         unitPriceMinor: current.unitPriceMinor,
         quantity: resultingQuantity,
       };
       const candidateItems = new Map(session.items);
-      candidateItems.set(current.productId, updatedItem);
+      candidateItems.set(key, updatedItem);
       this.snapshot({ ...session, items: candidateItems });
-      session.items.set(current.productId, updatedItem);
+      session.items.set(key, updatedItem);
       proposal.confirmed = true;
       return { proposalId: input.proposalId, alreadyConfirmed: false, cart: this.snapshot(session) };
     });
@@ -150,13 +173,17 @@ export class DemoCartProvider implements CartProvider {
     return this.snapshot(this.sessions.get(sessionId));
   }
 
-  private async loadProduct(productId: string): Promise<CartProduct> {
-    const product = await this.options.resolveProduct(productId);
+  private async loadProduct(productId: string, city: string): Promise<CartProduct> {
+    const product = await this.options.resolveProduct({ productId, city });
     if (!product) {
       throw new CartError('PRODUCT_NOT_FOUND', 'Product not found');
     }
-    requireValidProduct(product, productId);
+    requireValidProduct(product, productId, city);
     return product;
+  }
+
+  private itemKey(productId: string, city: string): string {
+    return JSON.stringify([productId, city]);
   }
 
   private session(sessionId: string): SessionCart {

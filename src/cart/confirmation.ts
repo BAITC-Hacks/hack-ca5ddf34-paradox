@@ -18,9 +18,10 @@ export function requireConfirmation(confirmed: unknown): asserts confirmed is tr
   }
 }
 
-export function requireValidProduct(product: CartProduct, requestedId: string): void {
+export function requireValidProduct(product: CartProduct, requestedId: string, requestedCity: string): void {
   if (
     product.productId !== requestedId ||
+    product.city !== requestedCity ||
     typeof product.name !== 'string' ||
     product.name.trim() === '' ||
     !Number.isSafeInteger(product.unitPriceMinor) ||
@@ -29,6 +30,12 @@ export function requireValidProduct(product: CartProduct, requestedId: string): 
     product.availableQuantity < 0
   ) {
     throw new CartError('INVALID_INPUT', 'Product resolver returned invalid data');
+  }
+}
+
+export function requireUnexpired(expiresAtMs: number, nowMs: number): void {
+  if (nowMs >= expiresAtMs) {
+    throw new CartError('PROPOSAL_EXPIRED', 'Proposal expired; prepare a new confirmation');
   }
 }
 

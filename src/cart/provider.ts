@@ -2,15 +2,19 @@
 export interface CartProduct {
   productId: string;
   name: string;
+  /** City whose customer-accessible stock was resolved. */
+  city: string;
   unitPriceMinor: number;
+  /** Customer-accessible quantity in city, not the total across warehouses. */
   availableQuantity: number;
 }
 
-export type ProductResolver = (productId: string) => Promise<CartProduct | null>;
+export type ProductResolver = (input: { productId: string; city: string }) => Promise<CartProduct | null>;
 
 export interface CartItem {
   productId: string;
   name: string;
+  city: string;
   quantity: number;
   unitPriceMinor: number;
 }
@@ -24,10 +28,12 @@ export interface CartSnapshot {
 
 export interface PreparedCartChange {
   proposalId: string;
+  city: string;
   product: CartProduct;
   quantityToAdd: number;
   resultingQuantity: number;
   lineTotalMinor: number;
+  expiresAt: string;
 }
 
 export interface ConfirmedCartChange {
@@ -40,6 +46,7 @@ export interface CartProvider {
   prepare(input: {
     sessionId: string;
     productId: string;
+    city: string;
     quantity: number;
   }): Promise<PreparedCartChange>;
 
@@ -58,6 +65,7 @@ export type CartErrorCode =
   | 'INSUFFICIENT_STOCK'
   | 'CONFIRMATION_REQUIRED'
   | 'PROPOSAL_NOT_FOUND'
+  | 'PROPOSAL_EXPIRED'
   | 'PRICE_CHANGED';
 
 export class CartError extends Error {

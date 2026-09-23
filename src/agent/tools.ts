@@ -26,7 +26,7 @@ export interface CatalogReader {
 
 /** The proposal may read an existing cart, but this interface cannot mutate one. */
 export interface CartReader {
-  getQuantity(productId: string): Promise<number>;
+  getQuantity(productId: string, city: string): Promise<number>;
 }
 
 /** Optional bridge to a session-bound cart. It persists only a pending proposal. */
@@ -228,7 +228,7 @@ export function createAgentTools(dependencies: AgentToolDependencies) {
         throw new AgentToolError("UNAVAILABLE", "Customer-accessible stock in this city is not confirmed");
       }
       const available = cityStock.reduce((sum, item) => sum + (item.availableQuantity ?? 0), 0);
-      const existingQuantity = cart ? await cart.getQuantity(product.id) : null;
+      const existingQuantity = cart ? await cart.getQuantity(product.id, input.city) : null;
       if (existingQuantity !== null && (!Number.isSafeInteger(existingQuantity) || existingQuantity < 0)) {
         throw new AgentToolError("INVALID_INPUT", "Cart reader returned an invalid quantity");
       }
