@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Презентация проекта: ИИ-ассистент ekt.kz | Команда Paradox</title>
+  <style>
+    :root {
+      --ekt-yellow: #FFC700;
+      --ekt-dark: #1E2229;
+      --ekt-gray: #F4F6F9;
+      --ekt-text: #2D3748;
+      --ekt-green: #10B981;
+      --ekt-blue: #3B82F6;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: var(--ekt-dark);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Presentation Header */
+    .pres-header {
+      padding: 14px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #14171C;
+      border-bottom: 2px solid var(--ekt-yellow);
+    }
+
+    .pres-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .pres-logo {
+      background: var(--ekt-yellow);
+      color: var(--ekt-dark);
+      font-weight: 900;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 18px;
+    }
+
+    .pres-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #E2E8F0;
+    }
+
+    .pres-counter {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--ekt-yellow);
+    }
+
+    /* Slide Deck Stage */
+    .stage {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      position: relative;
+    }
+
+    .slide {
+      background: #FFFFFF;
+      color: var(--ekt-text);
+      width: 100%;
+      max-width: 1100px;
+      height: 600px;
+      border-radius: 20px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      padding: 48px 56px;
+      display: none;
+      flex-direction: column;
+      position: relative;
+      animation: slideIn 0.3s ease forwards;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(12px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .slide.active {
+      display: flex;
+    }
+
+    .slide-badge {
+      display: inline-block;
+      background: var(--ekt-yellow);
+      color: var(--ekt-dark);
+      font-weight: 800;
+      font-size: 12px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+      align-self: flex-start;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .slide h2 {
+      font-size: 32px;
+      font-weight: 900;
+      color: var(--ekt-dark);
+      margin-bottom: 20px;
+      line-height: 1.2;
+    }
+
+    .slide-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      font-size: 17px;
+      line-height: 1.55;
+    }
+
+    /* Grid cards inside slides */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .pres-card {
+      background: var(--ekt-gray);
+      border-radius: 14px;
+      padding: 22px;
+      border: 1px solid #E2E8F0;
+    }
+
+    .pres-card h3 {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--ekt-dark);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pres-card p {
+      font-size: 14px;
+      color: #4A5568;
+    }
+
+    .stat-number {
+      font-size: 40px;
+      font-weight: 900;
+      color: var(--ekt-dark);
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .stat-number.yellow { color: #D97706; }
+    .stat-number.green { color: var(--ekt-green); }
+    .stat-number.blue { color: var(--ekt-blue); }
+
+    /* Controls Bar */
+    .pres-controls {
+      background: #14171C;
+      padding: 14px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .btn-nav {
+      background: var(--ekt-yellow);
+      color: var(--ekt-dark);
+      border: none;
+      padding: 10px 22px;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .btn-nav:hover {
+      background: #E5B200;
+      transform: translateY(-1px);
+    }
+
+    .btn-nav:disabled {
+      background: #374151;
+      color: #9CA3AF;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .hotkey-hint {
+      font-size: 12px;
+      color: #718096;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="pres-header">
+    <div class="pres-brand">
+      <div class="pres-logo">EKT</div>
+      <div class="pres-title">ТОО «Электрокомплект» • HACKALEM AI 2026</div>
+    </div>
+    <div class="pres-counter" id="slideCounter">Слайд 1 / 9</div>
+  </header>
+
+  <!-- Presentation Stage -->
+  <main class="stage">
+
+    <!-- SLIDE 1: Title -->
+    <div class="slide active">
+      <div class="slide-badge">Кейс №1 • ТОО «Электрокомплект» (ekt.kz)</div>
+      <h2 style="font-size: 42px; margin-top: 10px;">
+        ИИ-ассистент-консультант и умный помощник для сайта ekt.kz
+      </h2>
+      <div class="slide-content">
+        <p style="font-size: 20px; color: #4A5568; max-width: 800px; margin-bottom: 30px;">
+          Автоматизация подбора электрооборудования, обоснованный поиск аналогов при отсутствии позиций, разбор проектных смет и защищенная корзина покупок.
+        </p>
+        <div style="display: flex; gap: 20px; margin-top: auto;">
+          <div class="pres-card" style="flex:1;">
+            <div style="font-size: 12px; color: #718096; font-weight:700;">КОМАНДА</div>
+            <div style="font-size: 20px; font-weight: 900; color: var(--ekt-dark); margin-top: 4px;">Paradox</div>
+          </div>
+          <div class="pres-card" style="flex:1;">
+            <div style="font-size: 12px; color: #718096; font-weight:700;">ПАРТНЕР КЕЙСА</div>
+            <div style="font-size: 20px; font-weight: 900; color: var(--ekt-dark); margin-top: 4px;">ТОО «Электрокомплект»</div>
+          </div>
+          <div class="pres-card" style="flex:1;">
+            <div style="font-size: 12px; color: #718096; font-weight:700;">СТАТУС ПРОЕКТА</div>
+            <div style="font-size: 20px; font-weight: 900; color: var(--ekt-green); margin-top: 4px;">100% готовность прототипа</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 2: Problem -->
+    <div class="slide">
+      <div class="slide-badge">Проблема бизнеса</div>
+      <h2>В чем ключевая боль клиентов и менеджеров ekt.kz?</h2>
+      <div class="slide-content">
+        <div class="grid-3">
+          <div class="pres-card">
+            <div class="stat-number yellow">2-4 ч.</div>
+            <h3>Задержка консультации</h3>
+            <p>Клиентам приходится звонить или писать менеджеру для уточнения ТХ, наличия на складе или подбора замены. Решение о покупке затягивается.</p>
+          </div>
+          <div class="pres-card">
+            <div class="stat-number blue">25-30%</div>
+            <h3>Отток к конкурентам</h3>
+            <p>Если нужного автомата Legrand нет в наличии, покупатель не знает точный аналог и уходит на другие сайты вместо заказа альтернативы в ekt.kz.</p>
+          </div>
+          <div class="pres-card">
+            <div class="stat-number green">70%</div>
+            <h3>Рутина менеджеров</h3>
+            <p>Менеджеры тратят рабочее время на однотипные вопросы («есть ли в Шымкенте?», «какой аналог?») вместо заключения крупных B2B-контрактов.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 3: Solution & Roles -->
+    <div class="slide">
+      <div class="slide-badge">Архитектура и разделение ролей</div>
+      <h2>Комплексный подход команды Paradox</h2>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="pres-card" style="background:#FFFBEB; border: 2px solid #FCD34D;">
+            <div style="font-size: 12px; font-weight:800; color:#B45309; margin-bottom:4px;">FRONTEND & UX (МОЙ СТЕК)</div>
+            <h3>Интерактивный UI/UX ekt.kz</h3>
+            <ul style="margin-left: 20px; font-size: 14px; margin-top: 8px; line-height: 1.6; color:#4B5563;">
+              <li>Виджет чата в фирменной дизайн-системе ekt.kz</li>
+              <li>Визуальные карточки товаров с фото и ценами в ₸</li>
+              <li>Отображение складских остатков по 24 городам Казахстана</li>
+              <li>Интерактивная таблица сравнения аналогов (Side-by-Side)</li>
+              <li>Экран явного подтверждения корзины (Guardrail)</li>
+              <li>Выезжающая корзина и прямая ссылка на ekt.kz/personal/cart/</li>
+              <li>Полная адаптивность для мобильных телефонов (Mobile-First)</li>
+            </ul>
+          </div>
+          <div class="pres-card" style="background:#EFF6FF; border: 2px solid #93C5FD;">
+            <div style="font-size: 12px; font-weight:800; color:#1D4ED8; margin-bottom:4px;">BACKEND & AI ENGINE (ТИММЕЙТ)</div>
+            <h3>Бэкенд, поиск и интеграция</h3>
+            <ul style="margin-left: 20px; font-size: 14px; margin-top: 8px; line-height: 1.6; color:#4B5563;">
+              <li>FastAPI микросервис с REST API</li>
+              <li>SQLite FTS5 полнотекстовый поиск по 100k+ SKU</li>
+              <li>Интеграция с реальным BasicAuth API ekt.kz</li>
+              <li>Движок сопоставления технических параметров</li>
+              <li>Парсер файлов спецификаций (Excel, PDF, Word)</li>
+              <li>Оркестрация LLM агента с Function Calling</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 4: Must Have 1 & 2 -->
+    <div class="slide">
+      <div class="slide-badge">Критерии 1 и 2 • ТХ и Аналоги</div>
+      <h2>Точные характеристики и обоснованные аналоги</h2>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="pres-card">
+            <h3>⚡ Технические характеристики и остатки</h3>
+            <p style="margin-bottom: 10px;">По любому артикулу (например, <code>200300285_</code>) ассистент моментально выдает:</p>
+            <ul style="margin-left: 20px; font-size: 14px; color:#4A5568; line-height: 1.5;">
+              <li>Номинальный ток (160А), полюса (3P), ПКС (18 кА);</li>
+              <li>Точные остатки по городам: Алматы (5), Астана (8), Шымкент (3), Караганда (2);</li>
+              <li>Прямую ссылку на сертификат соответствия ГОСТ.</li>
+            </ul>
+          </div>
+          <div class="pres-card">
+            <h3>🔄 Explainable Analog Engine (Аналоги)</h3>
+            <p style="margin-bottom: 10px;">Если остаток = 0 (например, Legrand DRX250 250А):</p>
+            <ul style="margin-left: 20px; font-size: 14px; color:#4A5568; line-height: 1.5;">
+              <li>Находит совместимый сертифицированный аналог (IEK ВА88-35 250А);</li>
+              <li>Строит наглядную таблицу сравнения параметров;</li>
+              <li>Дает техническое обоснование замены и показывает экономию 21 610 ₸ (31%).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 5: Must Have 4 & 5 (Guardrails) -->
+    <div class="slide">
+      <div class="slide-badge">Критерии 4 и 5 • Безопасность корзины</div>
+      <h2>Строгие Guardrails: защита от случайных заказов</h2>
+      <div class="slide-content">
+        <div class="pres-card" style="border-left: 6px solid #D97706; background:#FFFBEB; margin-bottom: 16px;">
+          <h3 style="color:#92400E;">🛡️ Правило: Без согласия клиента корзина НЕ меняется!</h3>
+          <p style="color:#78350F; font-size: 15px;">
+            В отличие от примитивных ботов, наш ассистент блокирует любое автоматическое добавление. Он формирует экран подтверждения с проверкой параметров.
+          </p>
+        </div>
+        <div class="grid-3">
+          <div class="pres-card">
+            <h3>1. Степпер количества</h3>
+            <p>Клиент может скорректировать объем заказа прямо в диалоге.</p>
+          </div>
+          <div class="pres-card">
+            <h3>2. Контроль остатка</h3>
+            <p>Нельзя заказать больше, чем доступно на складах ekt.kz (жесткая валидация).</p>
+          </div>
+          <div class="pres-card">
+            <h3>3. Прямая ссылка</h3>
+            <p>Кнопка мгновенного перехода в корзину на <code>https://ekt.kz/personal/cart/</code>.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 6: Killer Feature - BOM Parser -->
+    <div class="slide">
+      <div class="slide-badge">Киллер-фича • Мультимодальность</div>
+      <h2>Парсер смет и спецификаций (Excel, PDF, Word)</h2>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="pres-card">
+            <h3>Как покупают электрики и закупщики?</h3>
+            <p style="font-size: 15px; margin-top: 8px;">
+              Прорабы и инженеры не ищут 30 позиций по одной. Они присылают дефектную ведомость в <strong>Excel</strong> или проект щитовой в <strong>PDF</strong>.
+            </p>
+            <div style="margin-top: 14px; padding: 12px; background: #fff; border-radius: 8px; border: 1px dashed #cbd5e1; font-size: 13px;">
+              📎 <em>Клиент просто перетаскивает файл <strong>specification.xlsx</strong> в окно чата!</em>
+            </div>
+          </div>
+          <div class="pres-card">
+            <h3>Что делает наш ассистент?</h3>
+            <ol style="margin-left: 20px; font-size: 14px; margin-top: 8px; line-height: 1.6; color:#4B5563;">
+              <li>Мгновенно извлекает все строки и количества;</li>
+              <li>Сопоставляет с номенклатурой ekt.kz;</li>
+              <li>Для отсутствующих позиций автоматически находит аналоги;</li>
+              <li>Считает общую смету и предлагает добавить всё в корзину одной кнопкой!</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 7: Bilingual & Mobile -->
+    <div class="slide">
+      <div class="slide-badge">Локализация и Мобильность</div>
+      <h2>Қазақ тілі және Мобильді бейімделу</h2>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="pres-card">
+            <h3>🇰🇿 Қазақ тілін толық қолдау</h3>
+            <p style="margin-top: 8px; font-size: 15px;">
+              Ассистент еркін түрде қазақ тілінде кеңес береді, тауар сипаттамаларын түсіндіреді және себетке тапсырысты растау терезесін қазақша ұсынады.
+            </p>
+          </div>
+          <div class="pres-card">
+            <h3>📱 Адаптивті дизайн (Mobile-First)</h3>
+            <p style="margin-top: 8px; font-size: 15px;">
+              Интерфейс құрылыс алаңында немесе қоймада смартфоннан кіретін шеберлер мен сатып алушылар үшін арнайы ыңғайландырылған (үлкен батырмалар, толық экранды режим).
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 8: Business Value -->
+    <div class="slide">
+      <div class="slide-badge">Бизнес-эффект для ТОО «Электрокомплект»</div>
+      <h2>Измеримый финансовый результат внедрения</h2>
+      <div class="slide-content">
+        <div class="grid-3">
+          <div class="pres-card">
+            <div class="stat-number green">в 40 раз</div>
+            <h3>Скорость сделки</h3>
+            <p>Консультация и подбор заказа ускоряются с 2 часов до 3 секунд в режиме 24/7.</p>
+          </div>
+          <div class="pres-card">
+            <div class="stat-number yellow">+25%</div>
+            <h3>Рост конверсии</h3>
+            <p>Клиенты не уходят при отсутствии товара благодаря мгновенному подбору аналогов.</p>
+          </div>
+          <div class="pres-card">
+            <div class="stat-number blue">30+ млн ₸</div>
+            <h3>Освобождение менеджеров</h3>
+            <p>Сотрудники фокусируются на крупных B2B тендерах и стройках вместо рутинных вопросов.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 9: Final & Q&A -->
+    <div class="slide">
+      <div class="slide-badge">Финал</div>
+      <h2 style="font-size: 38px;">Команда Paradox готова к демонстрации!</h2>
+      <div class="slide-content" style="align-items: center; text-align: center;">
+        <p style="font-size: 20px; color: #4A5568; max-width: 700px; margin-bottom: 24px;">
+          Все пункты технического задания (Must-Have 1-5, Ограничения, Опциональные) полностью реализованы и протестированы.
+        </p>
+        <div style="display:flex; gap:16px;">
+          <a href="index.html" target="_blank" style="background:var(--ekt-yellow); color:var(--ekt-dark); font-weight:800; font-size:16px; padding:14px 28px; border-radius:10px; text-decoration:none;">
+            🚀 Запустить живое демо ekt.kz
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Navigation Controls -->
+  <footer class="pres-controls">
+    <button class="btn-nav" id="btnPrev" disabled>← Предыдущий</button>
+    <div class="hotkey-hint">Управление: клавиши ← и → на клавиатуре</div>
+    <button class="btn-nav" id="btnNext">Следующий →</button>
+  </footer>
+
+  <script>
+    const slides = document.querySelectorAll('.slide');
+    const counter = document.getElementById('slideCounter');
+    const btnPrev = document.getElementById('btnPrev');
+    const btnNext = document.getElementById('btnNext');
+    let currentSlide = 0;
+
+    function updateSlide(index) {
+      slides.forEach((s, idx) => {
+        s.classList.toggle('active', idx === index);
+      });
+      counter.innerText = `Слайд ${index + 1} / ${slides.length}`;
+      btnPrev.disabled = index === 0;
+      btnNext.disabled = index === slides.length - 1;
+    }
+
+    btnPrev.onclick = () => {
+      if (currentSlide > 0) {
+        currentSlide--;
+        updateSlide(currentSlide);
+      }
+    };
+
+    btnNext.onclick = () => {
+      if (currentSlide < slides.length - 1) {
+        currentSlide++;
+        updateSlide(currentSlide);
+      }
+    };
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        if (currentSlide < slides.length - 1) {
+          currentSlide++;
+          updateSlide(currentSlide);
+        }
+      } else if (e.key === 'ArrowLeft') {
+        if (currentSlide > 0) {
+          currentSlide--;
+          updateSlide(currentSlide);
+        }
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fafafa">
+  <title>EKT AI — ваш помощник по электротехнике</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <svg class="svg-library" width="0" height="0" hidden aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7L12 3Z"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M5 4h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H9l-6 3V6a2 2 0 0 1 2-2Z"/><path d="M7 9h10M7 13h7"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6.5"/><path d="m15 15 6 6"/></symbol>
+    <symbol id="i-compare" viewBox="0 0 24 24"><path d="M4 7h16l-4-4M20 17H4l4 4M4 11V7m16 6v4"/></symbol>
+    <symbol id="i-truck" viewBox="0 0 24 24"><path d="M3 6h11v11H3V6Zm11 4h4l3 4v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+    <symbol id="i-cart" viewBox="0 0 24 24"><path d="M2 3h3l3 13h11l3-9H6"/><circle cx="9" cy="21" r="1"/><circle cx="18" cy="21" r="1"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="m8 12 6-6a3 3 0 0 1 4 4l-8 8a5 5 0 0 1-7-7l9-9"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 0 1 14 0Z"/><circle cx="12" cy="10" r="2"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 3h7v7M21 3 11 13M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+  </defs></svg>
+  <div class="app-shell">
+    <header class="site-header">
+      <a class="brand" href="#welcome" aria-label="EKT AI — главная"><span class="brand-mark">ekt<span>.</span></span><span class="brand-divider"></span><span class="brand-name">ЭЛЕКТРОКОМПЛЕКТ<small>Ваш эксперт по электротехнике</small></span></a>
+      <div class="header-right"><span class="location"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-pin"/></svg>Город — в запросе</span><a class="site-link" href="https://ekt.kz/" target="_blank" rel="noopener">На сайт ekt.kz <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-external"/></svg></a><button id="cartTrigger" class="cart-trigger" type="button" aria-label="Открыть корзину"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-cart"/></svg><span>Корзина</span><span id="cartCount">0</span></button></div>
+    </header>
+    <main class="layout">
+      <aside class="sidebar" aria-label="Навигация помощника">
+        <button id="newChat" class="new-chat" type="button"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-plus"/></svg>Новый запрос</button>
+        <div class="nav-label">РАБОЧЕЕ ПРОСТРАНСТВО</div>
+        <div class="nav-item active"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-spark"/></svg>AI-консультант<span class="nav-dot"></span></div>
+        <button id="catalogTrigger" class="nav-item" type="button"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-grid"/></svg>Помощь с подбором<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon nav-arrow"><use href="#i-arrow"/></svg></button>
+        <div class="sidebar-divider"></div>
+        <div class="nav-label">БЫСТРЫЕ ЗАПРОСЫ</div>
+        <button class="sidebar-prompt" data-prompt="Есть автомат Legrand 160 А?" type="button"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-search"/></svg>Найти товар</button>
+        <button class="sidebar-prompt" data-prompt="Подбери аналог для кабеля ВВГнг 3×2,5" type="button"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-compare"/></svg>Подобрать аналог</button>
+        <button class="sidebar-prompt" data-prompt="Какие условия доставки и оплаты?" type="button"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-truck"/></svg>Доставка и оплата</button>
+        <div class="sidebar-bottom"><div class="assurance"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-cart"/></svg><strong>Вы контролируете покупку</strong><p>Добавляем товар в корзину только после вашего подтверждения.</p></div><div class="sidebar-footer"><span class="version">EKT ASSISTANT <b>01</b></span><span>HACKALEM AI</span></div></div>
+      </aside>
+      <section class="chat" aria-label="Чат с консультантом">
+        <div class="chat-header"><div class="chat-heading"><span class="eyebrow">ЭЛЕКТРОКОМПЛЕКТ</span><span class="breadcrumb-slash">/</span><span>AI-консультант</span></div><span class="chat-status"><i></i><span id="connectionLabel">Просмотр интерфейса</span></span></div>
+        <div id="messages" class="messages" role="log" aria-live="polite">
+          <div id="welcome" class="welcome">
+            <div class="welcome-symbol"><svg width="32" height="32"><use href="#i-spark"/></svg><span class="symbol-plus">+</span></div>
+            <div class="welcome-kicker">ЭКСПЕРТ ПО ЭЛЕКТРОТЕХНИКЕ</div>
+            <h1>Хороший выбор<br>начинается с <span>вопроса.</span></h1>
+            <p class="welcome-description">Найдём нужный товар, разберём характеристики<br class="desktop-break"> и подберём подходящую замену.</p>
+            <div class="suggestions">
+              <button class="suggestion" data-prompt="Есть автомат Legrand 160 А?" type="button"><span class="suggestion-top"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-search"/></svg><span>01</span></span><strong>Найти товар</strong><span class="suggestion-description">Есть автомат Legrand<br>на 160 А?</span><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon suggestion-arrow"><use href="#i-arrow"/></svg></button>
+              <button class="suggestion" data-prompt="Подбери аналог для кабеля ВВГнг 3×2,5" type="button"><span class="suggestion-top"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-compare"/></svg><span>02</span></span><strong>Сравнить аналоги</strong><span class="suggestion-description">Чем заменить кабель<br>ВВГнг 3×2,5?</span><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon suggestion-arrow"><use href="#i-arrow"/></svg></button>
+              <button class="suggestion" data-prompt="Какие условия доставки и оплаты?" type="button"><span class="suggestion-top"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-truck"/></svg><span>03</span></span><strong>Условия покупки</strong><span class="suggestion-description">Как оплатить заказ<br>и получить доставку?</span><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon suggestion-arrow"><use href="#i-arrow"/></svg></button>
+            </div>
+            <p class="welcome-hint">Можно начать с названия, артикула или списка товаров</p>
+          </div>
+        </div>
+        <div id="typingIndicator" class="typing-indicator hidden" role="status"><span></span><span></span><span></span><span id="typingLabel">Подбираем ответ</span></div>
+        <div class="composer-wrap"><div class="composer-inner"><div id="attachment" class="attachment hidden"></div><form id="chatForm" class="composer"><label class="sr-only" for="messageInput">Сообщение</label><textarea id="messageInput" rows="2" autocomplete="off" placeholder="Какой товар вы ищете? Укажите город."></textarea><div class="composer-toolbar"><label class="attach-button" title="Прикрепить файл"><input id="fileInput" type="file" accept=".pdf,.docx,.xlsx,.jpg,.jpeg" class="file-input" aria-label="Прикрепить файл"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-file"/></svg><span>Прикрепить файл</span></label><span class="file-formats">PDF, DOCX, XLSX, JPEG · до 10 МБ</span><button id="sendButton" class="send-button" type="submit" aria-label="Отправить"><span>Отправить</span><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-arrow"/></svg></button></div></form><div class="composer-caption"><span id="composerStatus">Для отправки сообщений потребуется подключение к серверу</span><span class="enter-hint">Enter ↵ · Shift+Enter — новая строка</span></div></div></div>
+      </section>
+    </main>
+  </div>
+  <dialog id="selectionDialog" class="modal" aria-labelledby="selectionTitle">
+    <div class="modal-head"><span class="eyebrow">ПОДГОТОВКА ПРЕДЛОЖЕНИЯ</span><button class="icon-close" data-close="selectionDialog" aria-label="Закрыть" type="button"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-close"/></svg></button></div>
+    <h2 id="selectionTitle">Количество и город</h2><p id="selectionProduct" class="modal-product"></p>
+    <label class="quantity-label" for="quantityInput">Количество</label><div class="quantity-control"><button id="decreaseQty" type="button" aria-label="Уменьшить">−</button><input id="quantityInput" type="number" min="1" step="1" value="1"><button id="increaseQty" type="button" aria-label="Увеличить">+</button></div>
+    <p id="multipleHint" class="stock-hint"></p><label class="quantity-label city-label" for="cityInput">Город</label><input id="cityInput" class="city-input" type="text" placeholder="Например, Астана" autocomplete="address-level2">
+    <p id="selectionError" class="error hidden" role="alert"></p><div class="modal-actions"><button class="secondary-button" data-close="selectionDialog" type="button">Отмена</button><button id="requestProposal" class="primary-button" type="button">Проверить наличие и цену</button></div>
+  </dialog>
+  <dialog id="confirmDialog" class="modal" aria-labelledby="confirmTitle"><div class="modal-head"><span class="eyebrow">ПОДТВЕРЖДЕНИЕ</span><button class="icon-close" data-close="confirmDialog" aria-label="Закрыть" type="button"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-close"/></svg></button></div><div class="modal-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-cart"/></svg></div><h2 id="confirmTitle">Проверьте предложение</h2><div id="proposalSummary"></div><p class="stock-hint">Цена и наличие повторно проверятся при добавлении.</p><p id="confirmError" class="error hidden" role="alert"></p><div class="modal-actions"><button class="secondary-button" data-close="confirmDialog" type="button">Отмена</button><button id="confirmAdd" class="primary-button" type="button" disabled>Да, добавить в корзину</button></div></dialog>
+  <dialog id="cartDialog" class="modal cart-modal" aria-labelledby="cartTitle"><div class="modal-head"><span class="eyebrow">ВЫБРАННЫЕ ТОВАРЫ</span><button class="icon-close" data-close="cartDialog" aria-label="Закрыть" type="button"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.65" class="icon"><use href="#i-close"/></svg></button></div><h2 id="cartTitle">Корзина</h2><div id="cartContents"></div><div class="cart-footer"><a id="checkoutLink" class="primary-button hidden" target="_blank" rel="noopener">Открыть актуальную корзину ↗</a><p id="cartDisclaimer">Состав корзины загружается с сервера.</p></div></dialog>
+  <script src="./api.js" defer></script>
+  <script src="./view-model.js" defer></script>
+  <script src="./app.js" defer></script>
+</body>
+</html>

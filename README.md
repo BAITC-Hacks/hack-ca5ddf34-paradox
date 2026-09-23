@@ -17,6 +17,23 @@ npm run dev
 
 Backend слушает `http://localhost:3000`. `GET /health` проверяет, что сервер запущен. Файл `.env` не коммитить. Если интерфейс запущен на другом порту, настройте proxy `/api/*` и `/cart` на backend: браузер должен отправлять session cookie.
 
+## Запуск frontend
+
+Фронтенд-приложение расположено в папке `ekt-ai-frontend/`.
+
+```bash
+cd ekt-ai-frontend
+npm install
+npm run build
+npm test
+npm run dev
+```
+
+Интерфейс откроется на `http://127.0.0.1:5173`. Сервер разработки автоматически проксирует `/api/*` и `/cart` на запущенный backend (`http://127.0.0.1:3000`).
+
+Интерактивная слайд-презентация для жюри и тезисы спикера находятся в `docs/presentation.html` и `docs/presentation.md`.
+
+
 ## Контракт для фронтенда
 
 Полные запросы, ответы и ошибки описаны в [docs/API.md](docs/API.md).
