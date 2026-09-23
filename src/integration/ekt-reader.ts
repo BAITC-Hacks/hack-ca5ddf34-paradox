@@ -66,23 +66,30 @@ export class EktCatalogReader implements CatalogReader {
       : await searchProducts(this.client, query, { limit: candidateLimit, maxPages: this.maxSearchPages });
 
     const resolved: Array<{ candidate: AlternativeCandidate; score: number }> = [];
-    for (const item of candidates.products) {
-      if (item.id === target.id) continue;
-      const raw = await this.client.getProductDetail(item.id);
-      const alternative = normalizeProduct(raw);
-      const comparison = compareProducts(target, alternative);
-      if (comparison.categoryMismatch) continue;
-      resolved.push({
-        candidate: {
-          product: toSummary(alternative),
-          matchedFields: comparison.matchedFields,
-          differentFields: comparison.differentFields,
-          unknownFields: comparison.unknownFields,
-          explanation: explainComparison(comparison),
-          assessment: "candidate_requires_verification",
-        },
-        score: comparison.score + (input.city && (alternative.stock.byCity[cityName(input.city)] ?? 0) > 0 ? 5 : 0),
-      });
+    const items = candidates.products.filter((item) => item.id !== target.id);
+    // Bound concurrent detail requests so one failed product does not break the whole suggestion.
+    for (let offset = 0; offset < items.length; offset += 4) {
+      const batch = await Promise.allSettled(items.slice(offset, offset + 4).map((item) => this.client.getProductDetail(item.id)));
+      for (const result of batch) {
+        if (result.status !== "fulfilled") continue;
+        const alternative = normalizeProduct(result.value);
+        const comparison = compareProducts(target, alternative);
+        if (comparison.categoryMismatch) continue;
+        const cityStock = input.city ? alternative.stock.byCity[cityName(input.city)] ?? 0 : null;
+        // The case asks for purchasable substitutes: do not suggest zero-stock items in a selected city.
+        if (cityStock !== null && cityStock <= 0) continue;
+        resolved.push({
+          candidate: {
+            product: toSummary(alternative),
+            matchedFields: comparison.matchedFields,
+            differentFields: comparison.differentFields,
+            unknownFields: comparison.unknownFields,
+            explanation: explainComparison(comparison),
+            assessment: "candidate_requires_verification",
+          },
+          score: comparison.score + (cityStock !== null ? 5 : 0),
+        });
+      }
     }
     return resolved
       .sort((a, b) => b.score - a.score || a.candidate.product.name.localeCompare(b.candidate.product.name))
@@ -154,6 +161,7 @@ function extractFacts(product: CatalogProduct, source: SourceReference): Product
     NOMINALNOE_NAPRYAZHENIE: { field: "ratedVoltageV", number: true },
     NOMINALNAYA_OTKLYUCHAYUSHCHAYA_SPOSOBNOST: { field: "breakingCapacityKA", number: true },
     TIP_USTANOVKI: { field: "mounting" },
+    KRATNOST_MIN: { field: "orderMultiple", number: true },
   };
   for (const [key, mapping] of Object.entries(propertyFields)) {
     const raw = product.properties[key];

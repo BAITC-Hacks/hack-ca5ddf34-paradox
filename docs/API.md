@@ -28,7 +28,7 @@ Response:
 }
 ```
 
-`products` contains complete product cards (`id`, `name`, `article`, `productUrl`, `price`, `stock`, `facts`, `source`). `alternatives` contains `{candidate, details, comparison}`. Each `comparison` row has `{field, requested, offered, verdict}` where verdict is `match`, `different`, or `unknown`. `proposal`, when present, contains `id`, `productId`, `productName`, `productArticle`, `quantity`, `city`, `unitPrice`, `totalAmount`, and `expiresAt`. Display those exact fields before enabling confirmation. A chat response never changes the cart.
+`products` contains complete product cards (`id`, `name`, `article`, `productUrl`, `price`, `stock`, `facts`, `source`). A catalog property `KRATNOST_MIN`, when present, appears in `facts` as `orderMultiple`; quantities must be multiples of this value. `alternatives` contains `{candidate, details, comparison}` and excludes zero-stock candidates in a specified city. Each `comparison` row has `{field, requested, offered, verdict}` where verdict is `match`, `different`, or `unknown`. `proposal`, when present, contains `id`, `productId`, `productName`, `productArticle`, `quantity`, `city`, `unitPrice`, `totalAmount`, and `expiresAt`. Display those exact fields before enabling confirmation. A chat response never changes the cart.
 
 ## `GET /api/cart`
 
@@ -38,7 +38,7 @@ Returns `{ "items": [], "totalMinor": 0, "cartUrl": "https://demo.example/cart" 
 
 Request: `{ "proposalId": "..." }` with `X-CSRF-Token` from `/api/session`. The only UI action that should call this route is an explicit click on “Да, добавить в корзину”.
 
-Response: `{ "cart": { "items": [], "totalMinor": 0, "cartUrl": "..." }, "alreadyConfirmed": false }`. On success, show `cart.cartUrl`. The server rechecks the selected city's stock and the price; a changed price or insufficient stock yields HTTP 409 and requires a new proposal.
+Response: `{ "cart": { "items": [], "totalMinor": 0, "cartUrl": "..." }, "alreadyConfirmed": false }`. On success, show `cart.cartUrl`. The server rechecks the selected city's stock, price and order increment; a change or insufficient stock yields HTTP 409 and requires a new proposal.
 
 ## `POST /api/attachments`
 

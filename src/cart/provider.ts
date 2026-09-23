@@ -7,6 +7,8 @@ export interface CartProduct {
   unitPriceMinor: number;
   /** Customer-accessible quantity in city, not the total across warehouses. */
   availableQuantity: number;
+  /** Minimum order increment reported by the catalog, when it is a positive integer. */
+  orderMultiple?: number;
 }
 
 export type ProductResolver = (input: { productId: string; city: string }) => Promise<CartProduct | null>;
@@ -66,7 +68,8 @@ export type CartErrorCode =
   | 'CONFIRMATION_REQUIRED'
   | 'PROPOSAL_NOT_FOUND'
   | 'PROPOSAL_EXPIRED'
-  | 'PRICE_CHANGED';
+  | 'PRICE_CHANGED'
+  | 'ORDER_MULTIPLE_CHANGED';
 
 export class CartError extends Error {
   readonly code: CartErrorCode;

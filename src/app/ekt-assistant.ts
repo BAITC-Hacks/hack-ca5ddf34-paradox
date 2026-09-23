@@ -83,12 +83,14 @@ export class EktAssistantRuntime {
     const stockRecords = detail.stock.filter((item) => item.customerAccessible && item.city === city && item.availableQuantity !== null);
     if (!stockRecords.length) return null;
     const availableQuantity = stockRecords.reduce((sum, item) => sum + (item.availableQuantity ?? 0), 0);
+    const multiple = detail.facts.find((fact) => fact.field === "orderMultiple")?.value;
     return {
       productId: detail.id,
       name: detail.name,
       city: input.city,
       unitPriceMinor: toMinorUnits(detail.price.amount),
       availableQuantity,
+      ...(typeof multiple === "number" && Number.isSafeInteger(multiple) && multiple > 0 ? { orderMultiple: multiple } : {}),
     };
   }
 

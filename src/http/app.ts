@@ -64,7 +64,7 @@ export async function createHttpApp(options: HttpAppOptions): Promise<FastifyIns
     }
     if (error instanceof CartError) {
       const status = error.code === "PROPOSAL_NOT_FOUND" ? 404
-        : error.code === "INSUFFICIENT_STOCK" || error.code === "PRICE_CHANGED" || error.code === "PROPOSAL_EXPIRED" ? 409 : 400;
+        : error.code === "INSUFFICIENT_STOCK" || error.code === "PRICE_CHANGED" || error.code === "ORDER_MULTIPLE_CHANGED" || error.code === "PROPOSAL_EXPIRED" ? 409 : 400;
       return reply.code(status).send({ error: { code: error.code, message: error.message } });
     }
     if (error instanceof AttachmentExtractionError) {

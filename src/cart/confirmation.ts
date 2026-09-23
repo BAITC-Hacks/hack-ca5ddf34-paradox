@@ -27,7 +27,8 @@ export function requireValidProduct(product: CartProduct, requestedId: string, r
     !Number.isSafeInteger(product.unitPriceMinor) ||
     product.unitPriceMinor < 0 ||
     !Number.isSafeInteger(product.availableQuantity) ||
-    product.availableQuantity < 0
+    product.availableQuantity < 0 ||
+    (product.orderMultiple !== undefined && (!Number.isSafeInteger(product.orderMultiple) || product.orderMultiple < 1))
   ) {
     throw new CartError('INVALID_INPUT', 'Product resolver returned invalid data');
   }
@@ -42,5 +43,11 @@ export function requireUnexpired(expiresAtMs: number, nowMs: number): void {
 export function requireStock(available: number, alreadyInCart: number, toAdd: number): void {
   if (alreadyInCart + toAdd > available) {
     throw new CartError('INSUFFICIENT_STOCK', 'Requested quantity exceeds available stock');
+  }
+}
+
+export function requireOrderMultiple(orderMultiple: number | undefined, resultingQuantity: number): void {
+  if (orderMultiple !== undefined && resultingQuantity % orderMultiple !== 0) {
+    throw new CartError('INVALID_INPUT', `Order quantity must be a multiple of ${orderMultiple}`);
   }
 }

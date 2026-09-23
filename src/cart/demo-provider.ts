@@ -12,6 +12,7 @@ import {
 import {
   requireConfirmation,
   requireNonEmpty,
+  requireOrderMultiple,
   requireQuantity,
   requireStock,
   requireUnexpired,
@@ -94,6 +95,7 @@ export class DemoCartProvider implements CartProvider {
     const product = await this.loadProduct(input.productId, city);
     const existing = this.sessions.get(input.sessionId)?.items.get(this.itemKey(input.productId, city))?.quantity ?? 0;
     requireStock(product.availableQuantity, existing, input.quantity);
+    requireOrderMultiple(product.orderMultiple, existing + input.quantity);
     const lineTotalMinor = product.unitPriceMinor * input.quantity;
     if (!Number.isSafeInteger(lineTotalMinor)) {
       throw new CartError('INVALID_INPUT', 'line total exceeds safe integer range');
@@ -144,10 +146,14 @@ export class DemoCartProvider implements CartProvider {
       if (current.unitPriceMinor !== proposal.product.unitPriceMinor) {
         throw new CartError('PRICE_CHANGED', 'Price changed; prepare a new confirmation');
       }
+      if (current.orderMultiple !== proposal.product.orderMultiple) {
+        throw new CartError('ORDER_MULTIPLE_CHANGED', 'Order increment changed; prepare a new confirmation');
+      }
       const key = this.itemKey(current.productId, proposal.city);
       const existing = session.items.get(key)?.quantity ?? 0;
       requireStock(current.availableQuantity, existing, proposal.quantityToAdd);
       const resultingQuantity = existing + proposal.quantityToAdd;
+      requireOrderMultiple(current.orderMultiple, resultingQuantity);
       if (!Number.isSafeInteger(resultingQuantity)) {
         throw new CartError('INVALID_INPUT', 'quantity exceeds safe integer range');
       }

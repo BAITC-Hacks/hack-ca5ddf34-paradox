@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DemoCartProvider } from "../../src/cart/demo-provider.js";
+import type { CartProduct } from "../../src/cart/provider.js";
 
 function fixture(proposalTtlMs = 5 * 60_000) {
-  const products = new Map([
+  const products = new Map<string, CartProduct>([
     ["breaker-160:Астана", { productId: "breaker-160", name: "Автомат 160 А", city: "Астана", unitPriceMinor: 1_250_000, availableQuantity: 3 }],
     ["breaker-160:Алматы", { productId: "breaker-160", name: "Автомат 160 А", city: "Алматы", unitPriceMinor: 1_250_000, availableQuantity: 8 }],
     ["cable:Астана", { productId: "cable", name: "Кабель", city: "Астана", unitPriceMinor: 200_000, availableQuantity: 10 }],
@@ -120,6 +121,18 @@ describe("demo cart", () => {
     products.get("cable:Астана")!.unitPriceMinor = 250_000;
     await expect(provider.confirm({ sessionId: "alice", proposalId: proposal.proposalId, confirmed: true }))
       .rejects.toMatchObject({ code: "PRICE_CHANGED" });
+    expect((await provider.getCart("alice")).items).toEqual([]);
+  });
+
+  it("enforces catalog order increments and rechecks them on confirmation", async () => {
+    const { provider, products } = fixture();
+    products.get("cable:Астана")!.orderMultiple = 2;
+    await expect(provider.prepare({ sessionId: "alice", productId: "cable", city: "Астана", quantity: 1 }))
+      .rejects.toMatchObject({ code: "INVALID_INPUT" });
+    const proposal = await provider.prepare({ sessionId: "alice", productId: "cable", city: "Астана", quantity: 2 });
+    products.get("cable:Астана")!.orderMultiple = 3;
+    await expect(provider.confirm({ sessionId: "alice", proposalId: proposal.proposalId, confirmed: true }))
+      .rejects.toMatchObject({ code: "ORDER_MULTIPLE_CHANGED" });
     expect((await provider.getCart("alice")).items).toEqual([]);
   });
 });
