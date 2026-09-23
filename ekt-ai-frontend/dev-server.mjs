@@ -46,7 +46,7 @@ function backendOrigin(value) {
 }
 
 /** Local development only. The browser always calls the frontend origin. */
-export function createDevServer({ backendUrl = 'http://127.0.0.1:8000', rootDir = projectRoot, timeoutMs = 30000 } = {}) {
+export function createDevServer({ backendUrl = 'http://127.0.0.1:3000', rootDir = projectRoot, timeoutMs = 30000 } = {}) {
   const target = backendOrigin(backendUrl);
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('timeoutMs must be positive.');
   const transport = target.protocol === 'https:' ? https : http;
@@ -138,7 +138,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     const port = Number(process.env.PORT || 5173);
     const host = process.env.HOST || '127.0.0.1';
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be between 1 and 65535.');
-    const server = createDevServer({ backendUrl: process.env.BACKEND_URL || 'http://127.0.0.1:8000' });
+    const server = createDevServer({ backendUrl: process.env.BACKEND_URL || 'http://127.0.0.1:3000' });
     server.on('error', () => { console.error('Could not start frontend server. Check HOST and PORT.'); process.exitCode = 1; });
     server.listen(port, host, () => { console.log(`Frontend ready at http://${host.includes(':') ? '[' + host + ']' : host}:${port}`); });
     const shutdown = () => {

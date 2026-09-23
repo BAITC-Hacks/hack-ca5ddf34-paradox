@@ -26,7 +26,7 @@ const chatReply = (offered = proposal()) => ({
   proposal: offered, warnings: []
 });
 const addedCart = () => ({
-  items: [{ productId: 42, productName: 'Автомат 160 А', quantity: 3, city: 'Астана', totalMinor: 375150 }],
+  items: [{ productId: '42', name: 'Автомат 160 А', quantity: 3, city: 'Астана', unitPriceMinor: 125050 }],
   totalMinor: 375150, cartUrl: 'https://demo.example/cart?revision=1'
 });
 const response = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
@@ -163,6 +163,7 @@ test('search, product and alternatives, exact proposal review, explicit confirma
   assert.equal(ui.count('/api/cart/confirm'), 1, 'completed proposals must not be confirmed twice');
   await ui.click('#cartTrigger');
   assert.match(ui.$('cartContents').textContent, /Автомат 160 А/);
+  assert.match(ui.$('cartContents').textContent, /Цена за единицу: 1\s?250,5/);
   assert.equal(ui.$('checkoutLink').href, addedCart().cartUrl);
   assert.equal(ui.count('/api/session'), 1);
   for (const call of ui.calls) assert.equal(call.options.credentials, 'include');
@@ -289,7 +290,7 @@ test('quantity controls honor orderMultiple and invalid quantity cannot request 
   await ui.click('#requestProposal');
   assert.equal(ui.count('/api/chat'), 1, 'invalid order multiple must not reach chat API');
   assert.equal(ui.$('selectionDialog').open, true);
-  assert.match(ui.$('selectionError').textContent, /кратным 3/);
+  assert.match(ui.$('selectionError').textContent, /кратное 3/);
   ui.$('quantityInput').value = '3';
   await ui.click('#increaseQty');
   assert.equal(String(ui.$('quantityInput').value), '6');
@@ -299,6 +300,20 @@ test('quantity controls honor orderMultiple and invalid quantity cannot request 
   assert.equal(ui.count('/api/chat'), 2);
   assert.equal(ui.count('/api/cart/confirm'), 0);
   assert.match(JSON.parse(ui.calls[2].options.body).message, /количество: 3; город: Астана/);
+});
+
+test('fractional catalog order multiples are blocked by the integer-only cart API', async t => {
+  const fractional = { ...product(), facts: { orderMultiple: 0.5 } };
+  const ui = makeUi(t, [
+    { path: '/api/session', body: initialSession() },
+    { path: '/api/chat', body: { ...chatReply(null), products: [fractional] } }
+  ]);
+  await settle();
+  await ui.send('Покажи кабель');
+  await ui.click('.product-actions .add');
+  assert.equal(ui.$('requestProposal').disabled, true);
+  assert.match(ui.$('multipleHint').textContent, /Дробная кратность/);
+  assert.equal(ui.count('/api/chat'), 1);
 });
 
 test('pending attachment upload blocks proposal opening and confirmation until extraction completes', async t => {

@@ -665,15 +665,16 @@ function openSelection(product) {
   state.selection = product;
   $('selectionProduct').textContent = `${product.name || 'Товар'} · ${product.article || product.id}`;
   const multiple = view.orderMultiple(product);
-  $('quantityInput').value = multiple ?? ''; $('quantityInput').step = multiple ?? 'any'; $('quantityInput').min = multiple ?? '0';
+  const supportedMultiple = Number.isSafeInteger(multiple) ? multiple : null;
+  $('quantityInput').value = supportedMultiple ?? ''; $('quantityInput').step = supportedMultiple ?? '1'; $('quantityInput').min = supportedMultiple ?? '1';
   $('cityInput').value = view.stock(product.stock).city || '';
-  $('multipleHint').textContent = multiple === null ? 'Кратность заказа не распознана. Уточните её в чате.' : `Кратность заказа: ${fmt(multiple)}. Наличие и цена будут проверены сервером.`;
-  $('requestProposal').disabled = multiple === null; $('selectionError').classList.add('hidden'); $('selectionDialog').showModal();
+  $('multipleHint').textContent = multiple === null ? 'Кратность заказа не распознана. Уточните её в чате.' : supportedMultiple === null ? 'Дробная кратность заказа не поддерживается корзиной прототипа.' : `Кратность заказа: ${fmt(multiple)}. Наличие и цена будут проверены сервером.`;
+  $('requestProposal').disabled = supportedMultiple === null; $('selectionError').classList.add('hidden'); $('selectionDialog').showModal();
 }
 async function requestProposal() {
   if (!state.selection || state.busy) return;
   const product = state.selection, quantity = Number($('quantityInput').value), multiple = view.orderMultiple(product), city = $('cityInput').value.trim();
-  if (!Number.isFinite(quantity) || quantity <= 0 || !multiple || !view.isMultiple(quantity,multiple) || !city) { $('selectionError').textContent = !city ? 'Укажите город для проверки остатка.' : `Количество должно быть положительным и кратным ${multiple ? fmt(multiple) : 'указанному значению'}.`; $('selectionError').classList.remove('hidden'); return; }
+  if (!Number.isSafeInteger(quantity) || quantity <= 0 || !Number.isSafeInteger(multiple) || !view.isMultiple(quantity,multiple) || !city) { $('selectionError').textContent = !city ? 'Укажите город для проверки остатка.' : `Укажите целое количество, кратное ${Number.isSafeInteger(multiple) ? fmt(multiple) : 'поддерживаемому значению'}.`; $('selectionError').classList.remove('hidden'); return; }
   $('selectionDialog').close();
   await sendMessage(`Подготовь предложение для добавления в корзину. Товар: ${product.name}; артикул: ${product.article || 'не указан'}; ID: ${product.id}; количество: ${quantity}; город: ${city}.`);
 }
@@ -711,8 +712,10 @@ function renderCart() {
     const row = el('div','cart-item'), description = el('div');
     description.append(el('strong','',item.productName || item.name || item.product?.name || item.productArticle || item.article || 'Товар'), el('span','',`Количество: ${textValue(item.quantity)}${item.unit ? ' ' + item.unit : ''}`));
     if (item.city) description.append(el('span','',item.city));
-    const total = Number.isSafeInteger(item.totalMinor) ? view.cartTotal(item.totalMinor) : view.money(item.totalAmount);
-    row.append(description,el('strong','',total)); container.append(row);
+    const unitPrice = Number.isSafeInteger(item.unitPriceMinor) && item.unitPriceMinor >= 0
+      ? view.money({ amount: item.unitPriceMinor / 100, currency: 'KZT' }) : 'Цена не указана';
+    description.append(el('span','',`Цена за единицу: ${unitPrice}`));
+    row.append(description); container.append(row);
   });
   const total = el('div','cart-total'); total.append(el('span','','Итого'),el('span','',view.cartTotal(state.cart.totalMinor))); container.append(total);
   $('checkoutLink').href = view.safeLink(state.cart.cartUrl); $('checkoutLink').classList.remove('hidden'); $('cartDisclaimer').textContent = 'Состав и сумма получены от сервера. Оформление продолжится по ссылке на корзину.';
