@@ -147,6 +147,17 @@ function appendLink(parent, label, url, className = 'message-link') {
   else { link.target = '_blank'; link.rel = 'noopener noreferrer'; }
   parent.append(link);
 }
+function alternativeProduct(alternative) {
+  const candidate = alternative?.candidate;
+  const summary = candidate?.product || candidate;
+  if (!summary || typeof summary !== 'object' || summary.id === undefined) return null;
+  const details = alternative?.details;
+  return details && typeof details === 'object' && String(details.id) === String(summary.id)
+    ? { ...summary, ...details } : summary;
+}
+function alternativeReason(alternative) {
+  return typeof alternative?.details === 'string' ? alternative.details : '';
+}
 function addMessage(role, text, extras = {}) {
   $('welcome').classList.add('hidden');
   const row = el('div', 'message-row ' + role);
@@ -160,9 +171,9 @@ function addMessage(role, text, extras = {}) {
     }); stack.append(grid);
   }
   if (Array.isArray(extras.alternatives)) extras.alternatives.forEach(alternative => {
-    if (!alternative?.candidate) return;
-    const block = el('section', 'alternative-block'); block.append(el('h3', 'alternative-title', 'Вариант замены'), productCard(alternative.candidate));
-    if (alternative.details) block.append(el('p', 'reason', textValue(alternative.details)));
+    const product = alternativeProduct(alternative); if (!product) return;
+    const block = el('section', 'alternative-block'); block.append(el('h3', 'alternative-title', 'Вариант замены'), productCard(product));
+    const reason = alternativeReason(alternative); if (reason) block.append(el('p', 'reason', reason));
     if (Array.isArray(alternative.comparison) && alternative.comparison.length) block.append(comparisonTable(alternative.comparison)); stack.append(block);
   });
   renderWarnings(stack, extras.warnings);
@@ -177,8 +188,16 @@ function renderWarnings(parent, warnings) {
   warnings.forEach(warning => {
     const text = typeof warning === 'string' ? warning : typeof warning?.message === 'string' ? warning.message : '';
     if (!text) return;
+    const conflict = text.match(/^Conflicting catalog claims for ([A-Za-z][A-Za-z0-9]*);/);
+    const cityStock = text.match(/^Customer-accessible stock in (.+) is not confirmed\.$/);
+    const customerText = conflict ? `В каталоге противоречивые данные о параметре «${view.factLabel(conflict[1])}». Проверьте его перед покупкой.`
+      : text === 'Current price is not available from the catalog.' ? 'Актуальная цена в каталоге не указана. Уточните её перед покупкой.'
+      : cityStock ? `Наличие для покупателей в городе ${cityStock[1]} не подтверждено.`
+      : text === 'No verified purchase terms are available for this topic and city.' ? 'Подтверждённых условий по этому вопросу нет. Уточните их у продавца.'
+      : text === 'Existing cart quantity was not available; recheck it before confirming this proposal.' ? 'Количество товара в корзине не удалось проверить. Проверьте корзину перед подтверждением.'
+      : text;
     // Contract warnings are customer-facing; suppress common diagnostic/secret payloads.
-    box.append(el('p', '', /traceback|stack trace|authorization|password|api[_ -]?key|bearer\s|basic\s+[a-z\d+/=]+|csrf|access[_ -]?token/i.test(text) ? 'Некоторые данные требуют дополнительной проверки.' : text.slice(0, 1200)));
+    box.append(el('p', '', /traceback|stack trace|authorization|password|api[_ -]?key|bearer\s|basic\s+[a-z\d+/=]+|csrf|access[_ -]?token/i.test(customerText) ? 'Некоторые данные требуют дополнительной проверки.' : customerText.slice(0, 1200)));
   });
   if (box.childNodes.length) parent.append(box);
 }
@@ -281,14 +300,14 @@ function comparisonTable(rows) {
   const thead = el('thead'), heading = el('tr'); ['Параметр', 'Запрошено', 'Предложено', 'Оценка'].forEach(text => { const th = el('th', '', text); th.scope = 'col'; heading.append(th); }); thead.append(heading); table.append(thead);
   const tbody = el('tbody'); rows.forEach(row => {
     const tr = el('tr', row.verdict === 'different' ? 'comparison-difference' : '');
-    tr.append(el('th', '', textValue(row.field)), el('td', '', textValue(row.requested, 'Неизвестно')), el('td', '', textValue(row.offered, 'Неизвестно')));
+    tr.append(el('th', '', view.factLabel(row.field)), el('td', '', view.factValue(row.field, row.requested, 'Неизвестно')), el('td', '', view.factValue(row.field, row.offered, 'Неизвестно')));
     tr.append(el('td', 'verdict verdict-' + (['match','different','unknown'].includes(row.verdict) ? row.verdict : 'unknown'), { match: 'Совпадает', different: 'Отличается', unknown: 'Неизвестно' }[row.verdict] || 'Неизвестно')); tbody.append(tr);
   }); table.append(tbody); wrapper.append(table); return wrapper;
 }
 const proposalFields = [ ['id','Предложение'], ['productId','ID товара'], ['productName','Товар'], ['productArticle','Артикул'], ['quantity','Количество'], ['city','Город'], ['unitPrice','Цена за единицу'], ['totalAmount','Итого'], ['expiresAt','Действует до'] ];
 function proposalDetails(proposal) {
   const list = el('dl', 'proposal-summary');
-  proposalFields.forEach(([key, label]) => { list.append(el('dt', '', label), el('dd', key === 'totalAmount' ? 'proposal-total' : '', ['unitPrice','totalAmount'].includes(key) ? view.money(proposal[key]) : textValue(proposal[key], 'Не указано'))); });
+  proposalFields.forEach(([key, label]) => { list.append(el('dt', '', label), el('dd', key === 'totalAmount' ? 'proposal-total' : '', ['unitPrice','totalAmount'].includes(key) ? view.money(proposal[key], key === 'totalAmount' ? { currency: proposal.unitPrice?.currency } : undefined) : textValue(proposal[key], 'Не указано'))); });
   return list;
 }
 function isCurrentProposal(proposal) {
@@ -388,7 +407,7 @@ async function sendMessage(text, { includeCity = true } = {}) {
   try {
     const response = await api.chat(message);
     if (!response || typeof response.reply !== 'string') throw new Error('Invalid chat response');
-    const products = [...response.products, ...response.alternatives.map(x => x?.candidate).filter(Boolean)];
+    const products = [...response.products, ...response.alternatives.map(alternativeProduct).filter(Boolean)];
     recentProducts = Array.from(new Map(products.filter(item => item?.id !== undefined && item.name).map(item => [String(item.id), item])).values());
     for (const product of products) if (product?.id !== undefined) state.products.set(String(product.id), product);
     registerCities(products);
@@ -632,8 +651,9 @@ function renderHistoryRecord(entry) {
   else reply.append(el('p', 'archive-status', entry.status === 'pending' ? 'Ответ ещё загружается.' : 'Ответ не был сохранён. Можно вставить запрос в поле и отправить его снова.'));
   entry.products.forEach(product => reply.append(archivedProduct(product, entry.createdAt, entry.city)));
   entry.alternatives.forEach(alternative => {
-    const block = el('section', 'saved-alternative'); block.append(el('h3', 'alternative-title', 'Вариант замены'), archivedProduct(alternative.candidate, entry.createdAt, entry.city));
-    if (alternative.details) block.append(el('p', 'reason', textValue(alternative.details)));
+    const product = alternativeProduct(alternative); if (!product) return;
+    const block = el('section', 'saved-alternative'); block.append(el('h3', 'alternative-title', 'Вариант замены'), archivedProduct(product, entry.createdAt, entry.city));
+    const reason = alternativeReason(alternative); if (reason) block.append(el('p', 'reason', reason));
     if (alternative.comparison?.length) block.append(comparisonTable(alternative.comparison)); reply.append(block);
   });
   renderWarnings(reply, entry.warnings);

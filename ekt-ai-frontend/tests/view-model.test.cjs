@@ -21,6 +21,7 @@ test('missing and malformed prices never become free products', () => {
   assert.equal(normalized(view.money(1250.5)), '1 250,5');
   assert.equal(normalized(view.money({ amountMinor: 125050 })), '1 250,5');
   assert.match(view.money({ amount: 0, currency: 'KZT' }), /₸|KZT/);
+  assert.match(view.money(3751.5, { currency: 'KZT' }), /₸|KZT/);
   assert.equal(view.money({ amount: 50, amountMinor: 4999 }), 'Не указана');
 });
 
@@ -51,15 +52,30 @@ test('city stock never uses unrelated totals or another city', () => {
   assert.equal(view.stock({ byCity: { Астана: { quantity: '7.5' } } }, 'Астана').quantity, 7.5);
 });
 
+test('live EKT stock uses availableQuantity only for customer-accessible rows', () => {
+  const rows = [
+    { city: 'Алматы', availableQuantity: 9, customerAccessible: true },
+    { city: 'Астана', availableQuantity: 12, customerAccessible: false }
+  ];
+  assert.equal(view.stock(rows, 'Алматы').quantity, 9);
+  assert.equal(view.stock(rows, 'Астана').quantity, null);
+  assert.equal(view.stock(rows).quantity, null);
+  assert.deepEqual(plain(view.cities(rows)), ['Алматы', 'Астана']);
+});
+
 test('facts preserve order increment and omit unknown objects', () => {
   assert.deepEqual(plain(view.facts({ orderMultiple: 5, current: '160 А', certificate: null, unknown: [{ value: 'x' }] })), [['Кратность заказа', '5'], ['current', '160 А']]);
   assert.deepEqual(plain(view.facts([{ name: 'Ток', value: '160 А' }, { key: 'orderMultiple', value: 0.5 }, { label: 'Наличие сертификата', value: false }, { label: 'Нет значения' }])), [['Ток', '160 А'], ['Кратность заказа', '0,5'], ['Наличие сертификата', 'Нет']]);
+  assert.deepEqual(plain(view.facts([{ field: 'ratedCurrentA', value: 160, location: 'name' }, { field: 'orderMultiple', value: 2 }])), [['Номинальный ток, А', '160'], ['Кратность заказа', '2']]);
+  assert.deepEqual(plain(view.facts([{ field: 'category', value: 'circuit-breaker' }])), [['Категория', 'Автоматический выключатель']]);
+  assert.equal(view.factValue('category', 'circuit-breaker'), 'Автоматический выключатель');
 });
 
 test('order multiple is defaulted only when absent, with decimal steps supported', () => {
   assert.equal(view.orderMultiple({ facts: {} }), 1);
   assert.equal(view.orderMultiple({ facts: { orderMultiple: '0.5' } }), 0.5);
   assert.equal(view.orderMultiple({ facts: [{ key: 'orderMultiple', value: 2 }] }), 2);
+  assert.equal(view.orderMultiple({ facts: [{ field: 'orderMultiple', value: 4 }] }), 4);
   for (const value of [null, false, 0, -2, '', 'unknown']) assert.equal(view.orderMultiple({ facts: { orderMultiple: value } }), null);
   assert.equal(view.isMultiple(0.3, 0.1), true);
   assert.equal(view.isMultiple(1.5, 0.5), true);

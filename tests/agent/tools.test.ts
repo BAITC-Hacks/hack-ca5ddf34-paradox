@@ -71,7 +71,15 @@ test("search and alternatives return sourced candidates without compatibility pr
   const alternatives = await tools.find_alternatives({ productId: "515291", city: "Астана", limit: 3 });
   assert.equal(alternatives.candidates[0].assessment, "candidate_requires_verification");
   assert.deepEqual(alternatives.candidates[0].unknownFields, ["mounting"]);
-  assert.ok(alternatives.uncertainty.length);
+  assert.deepEqual(alternatives.uncertainty, []);
+});
+
+test("empty search results do not emit a duplicate English diagnostic", async () => {
+  const source = catalog();
+  const tools = createAgentTools({ catalog: { ...source, async search() { return []; } } });
+  const result = await tools.search_products({ query: "unknown article", city: "Алматы", limit: 1 });
+  assert.deepEqual(result.products, []);
+  assert.deepEqual(result.uncertainty, []);
 });
 
 test("purchase terms are unverified unless sourced policy entries are injected", async () => {

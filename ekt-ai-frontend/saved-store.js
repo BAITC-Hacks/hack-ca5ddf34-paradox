@@ -82,7 +82,7 @@
   function stockRow(value) {
     if (!object(value)) return typeof value === 'number' || typeof value === 'string' ? scalar(value, 80) : null;
     const result = {};
-    for (const key of ['quantity', 'available', 'total', 'city', 'warehouse', 'warehouseName', 'storeName', 'name']) {
+    for (const key of ['availableQuantity', 'customerAccessible', 'quantity', 'available', 'total', 'city', 'warehouse', 'warehouseName', 'storeName', 'name']) {
       if (Object.prototype.hasOwnProperty.call(value, key)) result[key] = scalar(value[key], 120);
     }
     return result;
@@ -144,10 +144,12 @@
     const raw = object(value) ? value : {};
     const alternatives = (Array.isArray(raw.alternatives) ? raw.alternatives : []).slice(0, 6).map(item => {
       if (!object(item)) return null;
-      const candidate = product(item.candidate);
+      const summary = object(item.candidate?.product) ? item.candidate.product : item.candidate;
+      const details = object(item.details) && String(item.details.id) === String(summary?.id) ? item.details : null;
+      const candidate = product(details ? { ...summary, ...details } : summary);
       if (!candidate) return null;
       return {
-        candidate, details: typeof item.details === 'string' ? text(item.details, 1600) : data(item.details),
+        candidate, details: typeof item.details === 'string' ? text(item.details, 1600) : '',
         comparison: (Array.isArray(item.comparison) ? item.comparison : []).slice(0, 20).filter(object).map(row => ({
           field: text(row.field, 120), requested: scalar(row.requested, 240), offered: scalar(row.offered, 240),
           verdict: ['match', 'different', 'unknown'].includes(row.verdict) ? row.verdict : 'unknown'

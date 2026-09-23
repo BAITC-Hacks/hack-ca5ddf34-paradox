@@ -149,7 +149,7 @@ export const toolDefinitions: readonly JsonToolDefinition[] = [
   {
     type: "function",
     name: "search_products",
-    description: "Search the EKT catalog by name, article, or requested characteristics; return sourced candidates.",
+    description: "Search the EKT catalog by name, article, or requested characteristics. If an article is given, search that exact article alone; do not combine it with descriptive words.",
     strict: true,
     parameters: {
       type: "object",
@@ -177,7 +177,7 @@ export const toolDefinitions: readonly JsonToolDefinition[] = [
   {
     type: "function",
     name: "find_alternatives",
-    description: "Find sourced candidate alternatives and explain known differences; never claim guaranteed compatibility.",
+    description: "Find alternatives for a product ID or exact article. Use this directly when the customer gives an article and asks for an alternative; results have positive stock in the requested city. Return candidates with sourced differences; never claim guaranteed compatibility.",
     strict: true,
     parameters: {
       type: "object",

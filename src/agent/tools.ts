@@ -160,7 +160,9 @@ export function createAgentTools(dependencies: AgentToolDependencies) {
       return {
         products,
         sources,
-        uncertainty: products.length ? [] : ["No matching products were found in the searched catalog."],
+        // An empty result is already explicit in `products`; avoid duplicating it as
+        // an English diagnostic in the prompt and customer-visible warning list.
+        uncertainty: [],
       };
     },
 
@@ -191,9 +193,9 @@ export function createAgentTools(dependencies: AgentToolDependencies) {
       return {
         candidates,
         sources: uniqueSources(candidates.map((candidate) => candidate.product.source)),
-        uncertainty: candidates.length
-          ? ["Alternatives are candidates; verify critical electrical and mechanical compatibility before purchase."]
-          : ["No sufficiently supported alternative was found."],
+        // The candidate list and each comparison already encode result/uncertainty;
+        // do not add redundant English diagnostics to model context or the UI.
+        uncertainty: [],
       };
     },
 

@@ -133,10 +133,19 @@ test("finds an in-stock Legrand alternative from another series and marks confli
     article: "NO-ALMATY-STOCK",
     stores: [{ name: "Алматы", quantity: 0 }, { name: "Астана", quantity: 100 }],
   };
+  const bestSupportedCandidate = {
+    ...otherSeriesCandidate,
+    id: 200300287,
+    name: "Автоматический выключатель Legrand DRX 160 А 25 кА",
+    article: "200300287_",
+    stores: [{ name: "Алматы", quantity: 9 }, { name: "Астана", quantity: 3 }],
+    properties: { ...otherSeriesCandidate.properties, NOMINALNAYA_OTKLYUCHAYUSHCHAYA_SPOSOBNOST: "25 кА" },
+  };
   const details = new Map([
     [targetForCase.id, targetForCase],
     [otherSeriesCandidate.id, otherSeriesCandidate],
     [wrongCityStockOnly.id, wrongCityStockOnly],
+    [bestSupportedCandidate.id, bestSupportedCandidate],
   ]);
   const listItems = [...details.values()].map(({ stores, properties, quantity, ...item }) => item);
   const fetcher = async (input: string | URL | Request): Promise<Response> => {
@@ -158,8 +167,10 @@ test("finds an in-stock Legrand alternative from another series and marks confli
 
   const alternatives = await reader.findAlternatives({ productId: "310100077_", city: "Алматы", limit: 5 });
   const alternative = alternatives.find(({ product }) => product.article === "200300285_");
+  const singleBest = await reader.findAlternatives({ productId: "310100077_", city: "Алматы", limit: 1 });
 
   assert.ok(alternative, "a different-series product with stock in Алматы should not be excluded by the DPX Legrand index phrase");
+  assert.equal(singleBest[0]?.product.article, "200300287_", "one-result mode selects the candidate with a supported 25 kA match");
   assert.ok(!alternatives.some(({ product }) => product.article === "NO-ALMATY-STOCK"), "stock outside the selected city is not sufficient");
   for (const field of ["category", "brand", "poleCount", "ratedVoltageV", "mounting"]) {
     assert.ok(alternative.matchedFields.includes(field), `expected ${field} to be compared as a match`);

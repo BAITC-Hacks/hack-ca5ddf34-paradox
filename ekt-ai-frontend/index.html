@@ -1076,7 +1076,8 @@ textarea:focus-visible, summary:focus-visible { outline: 3px solid #d9233270; ou
       const quantity = number(value);
       return quantity !== null && quantity >= 0 ? quantity : null;
     }
-    for (const field of ['quantity', 'available', 'total']) {
+    if (value.customerAccessible === false) return null;
+    for (const field of ['availableQuantity', 'quantity', 'available', 'total']) {
       if (!own(value, field)) continue;
       const quantity = number(value[field]);
       if (quantity !== null && quantity >= 0) return quantity;
@@ -1160,16 +1161,31 @@ textarea:focus-visible, summary:focus-visible { outline: 3px solid #d9233270; ou
     return null;
   }
 
+  const factLabels = {
+    category: 'Категория', brand: 'Бренд', poleCount: 'Число полюсов',
+    ratedCurrentA: 'Номинальный ток, А', ratedVoltageV: 'Номинальное напряжение, В',
+    breakingCapacityKA: 'Отключающая способность, кА', mounting: 'Монтаж',
+    orderMultiple: 'Кратность заказа'
+  };
+  function factLabel(field) {
+    return typeof field === 'string' ? factLabels[field] || field : '';
+  }
+  function factValue(field, value, fallback = 'Неизвестно') {
+    const displayed = scalar(value);
+    if (displayed === null) return fallback;
+    return field === 'category' && displayed === 'circuit-breaker' ? 'Автоматический выключатель' : displayed;
+  }
+
   function facts(value) {
     const result = [];
     const add = (label, raw) => {
-      const displayed = scalar(raw);
-      if (nonempty(label) && displayed !== null) result.push([label === 'orderMultiple' ? 'Кратность заказа' : label, displayed]);
+      const displayed = factValue(label, raw, null);
+      if (nonempty(label) && displayed !== null) result.push([factLabel(label), displayed]);
     };
     if (Array.isArray(value)) {
       value.forEach(item => {
         if (!record(item)) return;
-        add(item.name || item.label || item.key, item.value);
+        add(item.name || item.label || item.key || item.field, item.value);
       });
     } else if (record(value)) {
       Object.entries(value).forEach(([key, item]) => {
@@ -1187,7 +1203,7 @@ textarea:focus-visible, summary:focus-visible { outline: 3px solid #d9233270; ou
     let raw;
     if (record(value) && own(value, 'orderMultiple')) raw = value.orderMultiple;
     else if (Array.isArray(value)) {
-      const entries = value.filter(item => record(item) && (item.key === 'orderMultiple' || item.name === 'orderMultiple' || item.label === 'orderMultiple'));
+      const entries = value.filter(item => record(item) && (item.key === 'orderMultiple' || item.name === 'orderMultiple' || item.label === 'orderMultiple' || item.field === 'orderMultiple'));
       if (entries.length > 1) return null;
       if (!entries.length) return 1;
       raw = entries[0].value;
@@ -1257,7 +1273,7 @@ textarea:focus-visible, summary:focus-visible { outline: 3px solid #d9233270; ou
     add(product.certificates, '', 0);
     if (Array.isArray(product.facts)) {
       product.facts.forEach(item => {
-        if (!record(item) || ![item.name, item.label, item.key].some(certificateField)) return;
+        if (!record(item) || ![item.name, item.label, item.key, item.field].some(certificateField)) return;
         add(item.value, item.name || item.label || '', 0);
       });
     } else if (record(product.facts)) {
@@ -1285,7 +1301,7 @@ textarea:focus-visible, summary:focus-visible { outline: 3px solid #d9233270; ou
     let raw;
     if (record(productFacts)) raw = productFacts.unit;
     else if (Array.isArray(productFacts)) {
-      const matches = productFacts.filter(item => record(item) && [item.key, item.name, item.label].includes('unit'));
+      const matches = productFacts.filter(item => record(item) && [item.key, item.name, item.label, item.field].includes('unit'));
       if (matches.length === 1) raw = matches[0].value;
     }
     if (record(raw)) raw = raw.value;
@@ -1306,7 +1322,7 @@ textarea:focus-visible, summary:focus-visible { outline: 3px solid #d9233270; ou
     return Number.isFinite(expires) && current !== null && Number.isFinite(current) && expires > current;
   }
 
-  global.EktView = Object.freeze({ money, cartTotal, stock, stockEntries, cities, facts, certificates, image, unit, orderMultiple, isMultiple, safeLink, proposalValid });
+  global.EktView = Object.freeze({ money, cartTotal, stock, stockEntries, cities, facts, factLabel, factValue, certificates, image, unit, orderMultiple, isMultiple, safeLink, proposalValid });
 })(window);
 
 </script>
@@ -1395,7 +1411,7 @@ textarea:focus-visible, summary:focus-visible { outline: 3px solid #d9233270; ou
   function stockRow(value) {
     if (!object(value)) return typeof value === 'number' || typeof value === 'string' ? scalar(value, 80) : null;
     const result = {};
-    for (const key of ['quantity', 'available', 'total', 'city', 'warehouse', 'warehouseName', 'storeName', 'name']) {
+    for (const key of ['availableQuantity', 'customerAccessible', 'quantity', 'available', 'total', 'city', 'warehouse', 'warehouseName', 'storeName', 'name']) {
       if (Object.prototype.hasOwnProperty.call(value, key)) result[key] = scalar(value[key], 120);
     }
     return result;
@@ -1457,10 +1473,12 @@ textarea:focus-visible, summary:focus-visible { outline: 3px solid #d9233270; ou
     const raw = object(value) ? value : {};
     const alternatives = (Array.isArray(raw.alternatives) ? raw.alternatives : []).slice(0, 6).map(item => {
       if (!object(item)) return null;
-      const candidate = product(item.candidate);
+      const summary = object(item.candidate?.product) ? item.candidate.product : item.candidate;
+      const details = object(item.details) && String(item.details.id) === String(summary?.id) ? item.details : null;
+      const candidate = product(details ? { ...summary, ...details } : summary);
       if (!candidate) return null;
       return {
-        candidate, details: typeof item.details === 'string' ? text(item.details, 1600) : data(item.details),
+        candidate, details: typeof item.details === 'string' ? text(item.details, 1600) : '',
         comparison: (Array.isArray(item.comparison) ? item.comparison : []).slice(0, 20).filter(object).map(row => ({
           field: text(row.field, 120), requested: scalar(row.requested, 240), offered: scalar(row.offered, 240),
           verdict: ['match', 'different', 'unknown'].includes(row.verdict) ? row.verdict : 'unknown'
@@ -1758,6 +1776,17 @@ function appendLink(parent, label, url, className = 'message-link') {
   else { link.target = '_blank'; link.rel = 'noopener noreferrer'; }
   parent.append(link);
 }
+function alternativeProduct(alternative) {
+  const candidate = alternative?.candidate;
+  const summary = candidate?.product || candidate;
+  if (!summary || typeof summary !== 'object' || summary.id === undefined) return null;
+  const details = alternative?.details;
+  return details && typeof details === 'object' && String(details.id) === String(summary.id)
+    ? { ...summary, ...details } : summary;
+}
+function alternativeReason(alternative) {
+  return typeof alternative?.details === 'string' ? alternative.details : '';
+}
 function addMessage(role, text, extras = {}) {
   $('welcome').classList.add('hidden');
   const row = el('div', 'message-row ' + role);
@@ -1771,9 +1800,9 @@ function addMessage(role, text, extras = {}) {
     }); stack.append(grid);
   }
   if (Array.isArray(extras.alternatives)) extras.alternatives.forEach(alternative => {
-    if (!alternative?.candidate) return;
-    const block = el('section', 'alternative-block'); block.append(el('h3', 'alternative-title', 'Вариант замены'), productCard(alternative.candidate));
-    if (alternative.details) block.append(el('p', 'reason', textValue(alternative.details)));
+    const product = alternativeProduct(alternative); if (!product) return;
+    const block = el('section', 'alternative-block'); block.append(el('h3', 'alternative-title', 'Вариант замены'), productCard(product));
+    const reason = alternativeReason(alternative); if (reason) block.append(el('p', 'reason', reason));
     if (Array.isArray(alternative.comparison) && alternative.comparison.length) block.append(comparisonTable(alternative.comparison)); stack.append(block);
   });
   renderWarnings(stack, extras.warnings);
@@ -1788,8 +1817,16 @@ function renderWarnings(parent, warnings) {
   warnings.forEach(warning => {
     const text = typeof warning === 'string' ? warning : typeof warning?.message === 'string' ? warning.message : '';
     if (!text) return;
+    const conflict = text.match(/^Conflicting catalog claims for ([A-Za-z][A-Za-z0-9]*);/);
+    const cityStock = text.match(/^Customer-accessible stock in (.+) is not confirmed\.$/);
+    const customerText = conflict ? `В каталоге противоречивые данные о параметре «${view.factLabel(conflict[1])}». Проверьте его перед покупкой.`
+      : text === 'Current price is not available from the catalog.' ? 'Актуальная цена в каталоге не указана. Уточните её перед покупкой.'
+      : cityStock ? `Наличие для покупателей в городе ${cityStock[1]} не подтверждено.`
+      : text === 'No verified purchase terms are available for this topic and city.' ? 'Подтверждённых условий по этому вопросу нет. Уточните их у продавца.'
+      : text === 'Existing cart quantity was not available; recheck it before confirming this proposal.' ? 'Количество товара в корзине не удалось проверить. Проверьте корзину перед подтверждением.'
+      : text;
     // Contract warnings are customer-facing; suppress common diagnostic/secret payloads.
-    box.append(el('p', '', /traceback|stack trace|authorization|password|api[_ -]?key|bearer\s|basic\s+[a-z\d+/=]+|csrf|access[_ -]?token/i.test(text) ? 'Некоторые данные требуют дополнительной проверки.' : text.slice(0, 1200)));
+    box.append(el('p', '', /traceback|stack trace|authorization|password|api[_ -]?key|bearer\s|basic\s+[a-z\d+/=]+|csrf|access[_ -]?token/i.test(customerText) ? 'Некоторые данные требуют дополнительной проверки.' : customerText.slice(0, 1200)));
   });
   if (box.childNodes.length) parent.append(box);
 }
@@ -1892,14 +1929,14 @@ function comparisonTable(rows) {
   const thead = el('thead'), heading = el('tr'); ['Параметр', 'Запрошено', 'Предложено', 'Оценка'].forEach(text => { const th = el('th', '', text); th.scope = 'col'; heading.append(th); }); thead.append(heading); table.append(thead);
   const tbody = el('tbody'); rows.forEach(row => {
     const tr = el('tr', row.verdict === 'different' ? 'comparison-difference' : '');
-    tr.append(el('th', '', textValue(row.field)), el('td', '', textValue(row.requested, 'Неизвестно')), el('td', '', textValue(row.offered, 'Неизвестно')));
+    tr.append(el('th', '', view.factLabel(row.field)), el('td', '', view.factValue(row.field, row.requested, 'Неизвестно')), el('td', '', view.factValue(row.field, row.offered, 'Неизвестно')));
     tr.append(el('td', 'verdict verdict-' + (['match','different','unknown'].includes(row.verdict) ? row.verdict : 'unknown'), { match: 'Совпадает', different: 'Отличается', unknown: 'Неизвестно' }[row.verdict] || 'Неизвестно')); tbody.append(tr);
   }); table.append(tbody); wrapper.append(table); return wrapper;
 }
 const proposalFields = [ ['id','Предложение'], ['productId','ID товара'], ['productName','Товар'], ['productArticle','Артикул'], ['quantity','Количество'], ['city','Город'], ['unitPrice','Цена за единицу'], ['totalAmount','Итого'], ['expiresAt','Действует до'] ];
 function proposalDetails(proposal) {
   const list = el('dl', 'proposal-summary');
-  proposalFields.forEach(([key, label]) => { list.append(el('dt', '', label), el('dd', key === 'totalAmount' ? 'proposal-total' : '', ['unitPrice','totalAmount'].includes(key) ? view.money(proposal[key]) : textValue(proposal[key], 'Не указано'))); });
+  proposalFields.forEach(([key, label]) => { list.append(el('dt', '', label), el('dd', key === 'totalAmount' ? 'proposal-total' : '', ['unitPrice','totalAmount'].includes(key) ? view.money(proposal[key], key === 'totalAmount' ? { currency: proposal.unitPrice?.currency } : undefined) : textValue(proposal[key], 'Не указано'))); });
   return list;
 }
 function isCurrentProposal(proposal) {
@@ -1999,7 +2036,7 @@ async function sendMessage(text, { includeCity = true } = {}) {
   try {
     const response = await api.chat(message);
     if (!response || typeof response.reply !== 'string') throw new Error('Invalid chat response');
-    const products = [...response.products, ...response.alternatives.map(x => x?.candidate).filter(Boolean)];
+    const products = [...response.products, ...response.alternatives.map(alternativeProduct).filter(Boolean)];
     recentProducts = Array.from(new Map(products.filter(item => item?.id !== undefined && item.name).map(item => [String(item.id), item])).values());
     for (const product of products) if (product?.id !== undefined) state.products.set(String(product.id), product);
     registerCities(products);
@@ -2243,8 +2280,9 @@ function renderHistoryRecord(entry) {
   else reply.append(el('p', 'archive-status', entry.status === 'pending' ? 'Ответ ещё загружается.' : 'Ответ не был сохранён. Можно вставить запрос в поле и отправить его снова.'));
   entry.products.forEach(product => reply.append(archivedProduct(product, entry.createdAt, entry.city)));
   entry.alternatives.forEach(alternative => {
-    const block = el('section', 'saved-alternative'); block.append(el('h3', 'alternative-title', 'Вариант замены'), archivedProduct(alternative.candidate, entry.createdAt, entry.city));
-    if (alternative.details) block.append(el('p', 'reason', textValue(alternative.details)));
+    const product = alternativeProduct(alternative); if (!product) return;
+    const block = el('section', 'saved-alternative'); block.append(el('h3', 'alternative-title', 'Вариант замены'), archivedProduct(product, entry.createdAt, entry.city));
+    const reason = alternativeReason(alternative); if (reason) block.append(el('p', 'reason', reason));
     if (alternative.comparison?.length) block.append(comparisonTable(alternative.comparison)); reply.append(block);
   });
   renderWarnings(reply, entry.warnings);

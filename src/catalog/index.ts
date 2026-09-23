@@ -108,8 +108,13 @@ export class CatalogSearchIndex {
     if (!Number.isSafeInteger(limit) || limit < 1) throw new RangeError("limit must be a positive integer");
     const snapshot = this.snapshot;
     const articleKey = normalizeArticle(query);
+    const articleKeys = [...new Set([
+      articleKey,
+      ...(query.match(/(?<![\p{L}\p{N}_.\/-])[\p{L}\p{N}][\p{L}\p{N}_.\/-]{4,}(?![\p{L}\p{N}_.\/-])/gu) ?? []).map(normalizeArticle),
+    ].filter(Boolean))];
     const queryTerms = [...new Set(tokenize(query))];
-    const candidates = new Set(snapshot.articles.get(articleKey) ?? []);
+    const exactArticleIds = new Set(articleKeys.flatMap((key) => [...(snapshot.articles.get(key) ?? [])]));
+    const candidates = new Set(exactArticleIds);
     if (queryTerms.length > 0) {
       const postings = queryTerms.map((term) => postingForTerm(snapshot, term));
       if (postings.every((posting) => posting.size > 0)) {
@@ -122,7 +127,7 @@ export class CatalogSearchIndex {
 
     const ranked = [...candidates].map((id) => {
       const item = snapshot.byId.get(id)!;
-      return { item, score: score(item, queryTerms, articleKey, snapshot.articles.get(articleKey)?.has(id) ?? false) };
+      return { item, score: score(item, queryTerms, articleKey, exactArticleIds.has(id)) };
     }).sort((a, b) => b.score - a.score || a.item.product.id - b.item.product.id);
 
     return {

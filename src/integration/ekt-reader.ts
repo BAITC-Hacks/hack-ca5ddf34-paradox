@@ -73,7 +73,7 @@ export class EktCatalogReader implements CatalogReader {
         candidateMap.set(String(item.id), item);
       }
     }
-    const resolved: Array<{ candidate: AlternativeCandidate; score: number }> = [];
+    const resolved: Array<{ candidate: AlternativeCandidate; score: number; breakingCapacity: number; cityStock: number }> = [];
     const items = [...candidateMap.values()];
     // Bound concurrent detail requests so one failed product does not break the whole suggestion.
     for (let offset = 0; offset < items.length; offset += 4) {
@@ -100,11 +100,18 @@ export class EktCatalogReader implements CatalogReader {
             assessment: "candidate_requires_verification",
           },
           score: comparison.score + (cityStock !== null ? 5 : 0),
+          breakingCapacity: consistentBreakingCapacity(alternative),
+          cityStock: cityStock ?? 0,
         });
       }
     }
     return resolved
-      .sort((a, b) => b.score - a.score || a.candidate.product.name.localeCompare(b.candidate.product.name))
+      .sort((a, b) => b.score - a.score
+        // When product facts support a tie, prefer the stronger known interrupt rating,
+        // then the larger confirmed city stock. Comparison verdicts remain unchanged.
+        || b.breakingCapacity - a.breakingCapacity
+        || b.cityStock - a.cityStock
+        || a.candidate.product.name.localeCompare(b.candidate.product.name))
       .slice(0, input.limit)
       .map(({ candidate }) => candidate);
   }
@@ -339,6 +346,13 @@ function hasLowerBreakingCapacity(target: CatalogProduct, candidate: CatalogProd
   const requestedValue = Number([...requested][0]);
   const offeredValue = Number([...offered][0]);
   return Number.isFinite(requestedValue) && Number.isFinite(offeredValue) && offeredValue < requestedValue;
+}
+
+function consistentBreakingCapacity(product: CatalogProduct): number {
+  const claims = claimValues(extractFacts(product, sourceFor(product)), "breakingCapacityKA");
+  if (claims.size !== 1) return -1;
+  const value = Number([...claims][0]);
+  return Number.isFinite(value) ? value : -1;
 }
 
 function describeFieldClaims(facts: ProductFact[], field: string): string | null {

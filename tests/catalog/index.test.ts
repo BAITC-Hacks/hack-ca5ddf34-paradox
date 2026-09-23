@@ -65,6 +65,11 @@ describe("CatalogSearchIndex", () => {
     expect(index.coverage.complete).toBe(true);
   });
 
+  it("prioritizes an exact article embedded in a longer natural-language query", async () => {
+    const index = await CatalogSearchIndex.build(pageSource(), { maxPages: 3 });
+    expect(index.search("find an alternative for SKU-001_ automatic breaker 160 A").products[0]?.id).toBe(1);
+  });
+
   it("normalizes Russian and Kazakh terms and ranks exact terms ahead of prefixes", async () => {
     const index = await CatalogSearchIndex.build(pageSource(), { maxPages: 3 });
     expect(index.search("СВЕТИЛЬНИК led").products.map((product) => product.id)).toEqual([2, 3]);

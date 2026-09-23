@@ -19,7 +19,7 @@ const product = () => ({
 const proposal = (id = 'proposal-42') => ({
   id, productId: 42, productName: 'Автомат 160 А', productArticle: '200300285_',
   quantity: 3, city: 'Астана', unitPrice: { amount: 1250.5, currency: 'KZT' },
-  totalAmount: { amount: 3751.5, currency: 'KZT' }, expiresAt: new Date(Date.now() + 120000).toISOString()
+  totalAmount: 3751.5, expiresAt: new Date(Date.now() + 120000).toISOString()
 });
 const chatReply = (offered = proposal()) => ({
   reply: 'Проверьте выбранный товар и предложение.', products: [product()], alternatives: [],
@@ -183,7 +183,8 @@ test('sidebar shortcuts and saved panels remain usable from the compact menu', a
 
 test('history restores questions and results after reload without restoring purchase actions or sending requests', async t => {
   const storage = memoryStorage();
-  const reply = { ...chatReply(), alternatives: [{ candidate: { ...product(), id: 43, name: 'Сохранённый аналог' }, details: 'Другой производитель', comparison: [] }] };
+  const savedAlternative = { ...product(), id: 43, name: 'Сохранённый аналог', article: 'ALT-43', stock: [{ city: 'Астана', availableQuantity: 7, customerAccessible: true }] };
+  const reply = { ...chatReply(), alternatives: [{ candidate: { product: { id: 43, name: savedAlternative.name, article: savedAlternative.article, productUrl: savedAlternative.productUrl }, explanation: 'Другой производитель' }, details: savedAlternative, comparison: [] }] };
   const first = makeUi(t, [
     { path: '/api/session', body: initialSession() },
     { path: '/api/chat', body: reply }
@@ -201,6 +202,8 @@ test('history restores questions and results after reload without restoring purc
   assert.equal(restored.$('historyDialog').open, true);
   assert.match(restored.$('historyContents').textContent, /Кабель для склада/);
   assert.match(restored.$('historyContents').textContent, /Сохранённый аналог/);
+  assert.match(restored.$('historyContents').textContent, /ALT-43/);
+  assert.match(restored.$('historyContents').textContent, /В наличии · 7/);
   assert.equal(restored.$('historyContents').querySelectorAll('.saved-product').length, 2);
   assert.equal(restored.$('historyContents').querySelectorAll('.proposal-open, .small-button.add').length, 0);
   assert.ok(restored.$('historyContents').querySelector('.archive-proposal'));
@@ -411,14 +414,15 @@ test('search, product and alternatives, exact proposal review, explicit confirma
   const offered = proposal();
   const searchReply = chatReply(offered);
   searchReply.alternatives = [{
-    candidate: { ...product(), id: 43, name: 'Аналог 160 А', article: 'ALT-160' },
-    details: 'Тот же номинальный ток, другой производитель.',
+    candidate: { product: { id: 43, name: 'Аналог 160 А', article: 'ALT-160', productUrl: 'https://ekt.kz/product/43', source: 'Каталог ekt.kz' }, matchedFields: ['ratedCurrentA'], differentFields: ['brand'], unknownFields: [], explanation: 'Тот же номинальный ток, другой производитель.', assessment: 'candidate_requires_verification' },
+    details: { ...product(), id: 43, name: 'Аналог 160 А', article: 'ALT-160', stock: [{ city: 'Астана', availableQuantity: 9, customerAccessible: true }], facts: [{ field: 'ratedCurrentA', value: 160, location: 'specification' }, { field: 'orderMultiple', value: 1, location: 'specification' }] },
     comparison: [
       { field: 'Номинальный ток', requested: '160 А', offered: '160 А', verdict: 'match' },
       { field: 'Производитель', requested: 'Марка А', offered: 'Марка Б', verdict: 'different' },
       { field: 'Сертификат', requested: 'Требуется', offered: 'Не указан', verdict: 'unknown' }
     ]
   }];
+  searchReply.warnings = ['Conflicting catalog claims for ratedCurrentA; verify before advising on this property.'];
   let finishConfirmation;
   const pendingConfirmation = new Promise(resolve => { finishConfirmation = resolve; });
   const ui = makeUi(t, [
@@ -433,7 +437,15 @@ test('search, product and alternatives, exact proposal review, explicit confirma
   assert.equal(ui.$('confirmAdd').disabled, true);
   await ui.send('Нужен автомат 160 А в Астане');
   assert.equal(ui.document.querySelectorAll('.product-card').length, 2);
-  assert.match(ui.document.querySelector('.alternative-block').textContent, /Тот же номинальный ток, другой производитель/);
+  assert.doesNotMatch(ui.document.querySelector('.alternative-block').textContent, /matchedFields|ratedCurrentA|customerAccessible/);
+  assert.match(ui.document.querySelector('.alternative-block .product-card').textContent, /Аналог 160 А/);
+  assert.match(ui.document.querySelector('.alternative-block .product-card').textContent, /ALT-160/);
+  assert.match(ui.document.querySelector('.alternative-block .product-price').textContent, /1\s*250,5/);
+  assert.match(ui.document.querySelector('.alternative-block .stock').textContent, /В наличии · 9/);
+  assert.match(ui.document.querySelector('.alternative-block .product-facts-preview').textContent, /Номинальный ток, А: 160/);
+  assert.doesNotMatch(ui.document.querySelector('.alternative-block').textContent, /availableQuantity|customerAccessible|\[object Object\]/);
+  assert.match(ui.document.querySelector('.notice').textContent, /противоречивые данные о параметре «Номинальный ток, А»/);
+  assert.doesNotMatch(ui.document.querySelector('.notice').textContent, /ratedCurrentA|Conflicting catalog/);
   const comparison = ui.document.querySelector('.comparison');
   assert.match(comparison.textContent, /Номинальный ток/);
   assert.match(comparison.textContent, /Совпадает/);
@@ -453,7 +465,8 @@ test('search, product and alternatives, exact proposal review, explicit confirma
   const values = Array.from(ui.$('proposalSummary').querySelectorAll('dd'), item => item.textContent);
   assert.deepEqual(labels, ['Предложение', 'ID товара', 'Товар', 'Артикул', 'Количество', 'Город', 'Цена за единицу', 'Итого', 'Действует до']);
   assert.deepEqual(values, [offered.id, '42', offered.productName, offered.productArticle, '3', 'Астана',
-    ui.window.EktView.money(offered.unitPrice), ui.window.EktView.money(offered.totalAmount), offered.expiresAt]);
+    ui.window.EktView.money(offered.unitPrice), ui.window.EktView.money(offered.totalAmount, { currency: 'KZT' }), offered.expiresAt]);
+  assert.match(ui.$('proposalSummary').querySelector('.proposal-total').textContent, /KZT|₸/);
   assert.equal(ui.$('confirmAdd').disabled, false);
   assert.equal(ui.count('/api/cart/confirm'), 0);
 

@@ -58,7 +58,8 @@
       const quantity = number(value);
       return quantity !== null && quantity >= 0 ? quantity : null;
     }
-    for (const field of ['quantity', 'available', 'total']) {
+    if (value.customerAccessible === false) return null;
+    for (const field of ['availableQuantity', 'quantity', 'available', 'total']) {
       if (!own(value, field)) continue;
       const quantity = number(value[field]);
       if (quantity !== null && quantity >= 0) return quantity;
@@ -142,16 +143,31 @@
     return null;
   }
 
+  const factLabels = {
+    category: 'Категория', brand: 'Бренд', poleCount: 'Число полюсов',
+    ratedCurrentA: 'Номинальный ток, А', ratedVoltageV: 'Номинальное напряжение, В',
+    breakingCapacityKA: 'Отключающая способность, кА', mounting: 'Монтаж',
+    orderMultiple: 'Кратность заказа'
+  };
+  function factLabel(field) {
+    return typeof field === 'string' ? factLabels[field] || field : '';
+  }
+  function factValue(field, value, fallback = 'Неизвестно') {
+    const displayed = scalar(value);
+    if (displayed === null) return fallback;
+    return field === 'category' && displayed === 'circuit-breaker' ? 'Автоматический выключатель' : displayed;
+  }
+
   function facts(value) {
     const result = [];
     const add = (label, raw) => {
-      const displayed = scalar(raw);
-      if (nonempty(label) && displayed !== null) result.push([label === 'orderMultiple' ? 'Кратность заказа' : label, displayed]);
+      const displayed = factValue(label, raw, null);
+      if (nonempty(label) && displayed !== null) result.push([factLabel(label), displayed]);
     };
     if (Array.isArray(value)) {
       value.forEach(item => {
         if (!record(item)) return;
-        add(item.name || item.label || item.key, item.value);
+        add(item.name || item.label || item.key || item.field, item.value);
       });
     } else if (record(value)) {
       Object.entries(value).forEach(([key, item]) => {
@@ -169,7 +185,7 @@
     let raw;
     if (record(value) && own(value, 'orderMultiple')) raw = value.orderMultiple;
     else if (Array.isArray(value)) {
-      const entries = value.filter(item => record(item) && (item.key === 'orderMultiple' || item.name === 'orderMultiple' || item.label === 'orderMultiple'));
+      const entries = value.filter(item => record(item) && (item.key === 'orderMultiple' || item.name === 'orderMultiple' || item.label === 'orderMultiple' || item.field === 'orderMultiple'));
       if (entries.length > 1) return null;
       if (!entries.length) return 1;
       raw = entries[0].value;
@@ -239,7 +255,7 @@
     add(product.certificates, '', 0);
     if (Array.isArray(product.facts)) {
       product.facts.forEach(item => {
-        if (!record(item) || ![item.name, item.label, item.key].some(certificateField)) return;
+        if (!record(item) || ![item.name, item.label, item.key, item.field].some(certificateField)) return;
         add(item.value, item.name || item.label || '', 0);
       });
     } else if (record(product.facts)) {
@@ -267,7 +283,7 @@
     let raw;
     if (record(productFacts)) raw = productFacts.unit;
     else if (Array.isArray(productFacts)) {
-      const matches = productFacts.filter(item => record(item) && [item.key, item.name, item.label].includes('unit'));
+      const matches = productFacts.filter(item => record(item) && [item.key, item.name, item.label, item.field].includes('unit'));
       if (matches.length === 1) raw = matches[0].value;
     }
     if (record(raw)) raw = raw.value;
@@ -288,5 +304,5 @@
     return Number.isFinite(expires) && current !== null && Number.isFinite(current) && expires > current;
   }
 
-  global.EktView = Object.freeze({ money, cartTotal, stock, stockEntries, cities, facts, certificates, image, unit, orderMultiple, isMultiple, safeLink, proposalValid });
+  global.EktView = Object.freeze({ money, cartTotal, stock, stockEntries, cities, facts, factLabel, factValue, certificates, image, unit, orderMultiple, isMultiple, safeLink, proposalValid });
 })(window);
